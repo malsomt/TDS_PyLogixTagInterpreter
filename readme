@@ -1,0 +1,16 @@
+TLM - 10-10-2023
+Run the command below to compile the design file into executable python code that will generate a window on runtime.
+
+pyuic5 PyQt5_DesignFile.ui -o MainWindow.py -x
+
+Results should be the same code that is generated in the designer with the addition of an "if main" executable.
+Example of "if main" generated
+
+if __name__ == "__main__":
+    import sys
+    app = QtWidgets.QApplication(sys.argv)
+    MainWindow = QtWidgets.QMainWindow()
+    ui = Ui_MainWindow()
+    ui.setupUi(MainWindow)
+    MainWindow.show()
+    sys.exit(app.exec_())
