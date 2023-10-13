@@ -80,15 +80,27 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
             self.connected = False
 
     def action_loadPrograms(self):
+        #Use parallel thread for actions
         global thread2
         thread2 = threading.Thread(target=self.start_LoadPrograms)
+        thread2.setDaemon(True)
+        thread2.start()
 
     def start_LoadPrograms(self):
-        programs = self.plc.GetProgramsList()
-        self.lst_components.clear()
-        for p in programs:
-            item = QtWidgets.QListWidgetItem(p)
-            self.lst_components.addItem(item)
+        # Poll PLC for a list of programs.
+        # Return is List of strings in the response.Value
+        # Format example is 'Program:S0_SystemControl'
+
+        response = self.plc.GetProgramsList()
+        if response.Status == 'Success':
+            self.lst_components.clear()
+            list.sort(response.Value)
+            for p in response.Value:
+                p = str.replace(p, 'Program:', '')
+                item = QtWidgets.QListWidgetItem(p)
+                self.lst_components.addItem(item)
+        else:
+            self.status_disp.setText(f'Operation Failed - {response.Status}')
 
     def getMainWindowIP(self):
         # return ip address formatted for pylogix PLC comms
