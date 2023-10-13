@@ -1,12 +1,15 @@
 import time
 
 from MainWindow import *
-
+from MessageWindow import *
 import pylogix
 import threading
 
+
+
 global thread1
 global thread2
+global windowDict
 
 
 class Application(Ui_MainWindow, QtWidgets.QMainWindow):
@@ -17,6 +20,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.btn_connect.clicked.connect(self.action_connectToPLC)
         self.btn_disconnect.clicked.connect(self.action_disconnectToPLC)
         self.btn_loadPrograms.clicked.connect(self.action_loadPrograms)
+        self.lst_components.doubleClicked.connect(self.action_editSelectProgram)
         self._connected = None
         self.connected = False
         self.plc = None
@@ -48,7 +52,10 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def action_disconnectToPLC(self):
         self.status_disp.setText('Disconnected')
+        self.lst_components.clear()
         self.connected = False
+        global windowDict
+        windowDict = {}  # clear window dictionary
 
     def toggleTargetSetup(self, flag):
         self.ip_1.setEnabled(flag)
@@ -114,9 +121,26 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         # return the processor slot selected from the main window
         return self.ip_slot.value()
 
+    def action_editSelectProgram(self):
+        global windowDict
+        progName = self.lst_components.selectedItems()[0].text()
+        editWindow = EditWindow()
+        editWindow.setWindowTitle(progName)
+        windowDict[progName] = editWindow
+
+        windowDict[progName].show()
+
+
+class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
+    def __init__(self):
+        super(EditWindow, self).__init__()
+        self.setupUi(self)
+
+
 
 if __name__ == "__main__":
     import sys
+    windowDict = {}
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = Application()
     MainWindow.show()

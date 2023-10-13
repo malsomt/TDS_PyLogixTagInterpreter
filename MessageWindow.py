@@ -15,11 +15,11 @@ class Ui_EditTable(object):
     def setupUi(self, EditTable):
         EditTable.setObjectName("EditTable")
         EditTable.resize(936, 484)
-        self.tab = QtWidgets.QWidget()
-        self.tab.setObjectName("tab")
-        self.gridLayout = QtWidgets.QGridLayout(self.tab)
+        self.tab_faults = QtWidgets.QWidget()
+        self.tab_faults.setObjectName("tab_faults")
+        self.gridLayout = QtWidgets.QGridLayout(self.tab_faults)
         self.gridLayout.setObjectName("gridLayout")
-        self.tableWidget = QtWidgets.QTableWidget(self.tab)
+        self.tableWidget = QtWidgets.QTableWidget(self.tab_faults)
         self.tableWidget.setAlternatingRowColors(True)
         self.tableWidget.setGridStyle(QtCore.Qt.SolidLine)
         self.tableWidget.setObjectName("tableWidget")
@@ -34,7 +34,7 @@ class Ui_EditTable(object):
         self.tableWidget.horizontalHeader().setStretchLastSection(True)
         self.tableWidget.verticalHeader().setSortIndicatorShown(False)
         self.gridLayout.addWidget(self.tableWidget, 0, 0, 1, 1)
-        EditTable.addTab(self.tab, "")
+        EditTable.addTab(self.tab_faults, "")
         self.tab_2 = QtWidgets.QWidget()
         self.tab_2.setObjectName("tab_2")
         self.gridLayout_2 = QtWidgets.QGridLayout(self.tab_2)
@@ -55,7 +55,7 @@ class Ui_EditTable(object):
         EditTable.addTab(self.tab_2, "")
 
         self.retranslateUi(EditTable)
-        EditTable.setCurrentIndex(0)
+        EditTable.setCurrentIndex(1)
         QtCore.QMetaObject.connectSlotsByName(EditTable)
 
     def retranslateUi(self, EditTable):
@@ -66,7 +66,7 @@ class Ui_EditTable(object):
         item.setText(_translate("EditTable", "FaultID"))
         item = self.tableWidget.horizontalHeaderItem(1)
         item.setText(_translate("EditTable", "Message"))
-        EditTable.setTabText(EditTable.indexOf(self.tab), _translate("EditTable", "Faults"))
+        EditTable.setTabText(EditTable.indexOf(self.tab_faults), _translate("EditTable", "Faults"))
         item = self.tableWidget_2.horizontalHeaderItem(0)
         item.setText(_translate("EditTable", "MessageID"))
         item = self.tableWidget_2.horizontalHeaderItem(1)
