@@ -1,3 +1,18 @@
+Object of this program is to build a simple GUI interface to allow for the easy visibility and editing of program level
+fault messages and IDs as well as operator messages.
+
+Current Progress...
+Connects to PLC and lists programs, double clicking on a selected program will create an instance of the edit window for that
+program.
+
+Windows are layed out using PYQT5 designer and compiled into python classes.
+main.py is the entry point
+
+Readme File here is for my personal notes until a later date.
+Ignore everything below this...
+
+
+
 TLM - 10-10-2023
 Run the command below to compile the design file into executable python code that will generate a window on runtime.
 
