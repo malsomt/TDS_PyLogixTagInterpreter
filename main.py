@@ -4,12 +4,12 @@ from MainWindow import *
 from MessageWindow import *
 import pylogix
 import threading
-
-
+from definitions import *
 
 global thread1
 global thread2
 global windowDict
+global plc
 
 
 class Application(Ui_MainWindow, QtWidgets.QMainWindow):
@@ -23,7 +23,6 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.lst_components.doubleClicked.connect(self.action_editSelectProgram)
         self._connected = None
         self.connected = False
-        self.plc = None
 
     @property
     def connected(self):
@@ -37,14 +36,14 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def action_connectToPLC(self):
         self.status_disp.setText('Attempting to connect...')
-
-        self.plc = pylogix.PLC()
+        global plc
+        plc = pylogix.PLC()
         ip = self.getMainWindowIP()
         slot = self.getMainWindowSlot()
 
-        self.plc.IPAddress = ip
-        self.plc.ProcessorSlot = slot
-        self.plc.Micro800 = False
+        plc.IPAddress = ip
+        plc.ProcessorSlot = slot
+        plc.Micro800 = False
         # Lock connection button, IP and slot button interface
         self.toggleTargetSetup(False)
         # Send connections and PlC interactions to separate thread
@@ -77,8 +76,10 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
             print('unable to start connection_test, ' + str(e))
 
     def connection_test(self):
-        plc_time = self.plc.GetPLCTime()  # Used to test connection
+        global plc
+        plc_time = plc.GetPLCTime()  # Used to test connection
         if plc_time.Value is not None:
+            plc.GetTagList()
             self.status_disp.setText('Connected to PLC')
             self.connected = True
 
@@ -87,7 +88,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
             self.connected = False
 
     def action_loadPrograms(self):
-        #Use parallel thread for actions
+        # Use parallel thread for actions
         global thread2
         thread2 = threading.Thread(target=self.start_LoadPrograms)
         thread2.setDaemon(True)
@@ -97,8 +98,8 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         # Poll PLC for a list of programs.
         # Return is List of strings in the response.Value
         # Format example is 'Program:S0_SystemControl'
-
-        response = self.plc.GetProgramsList()
+        global plc
+        response = plc.GetProgramsList()
         if response.Status == 'Success':
             self.lst_components.clear()
             list.sort(response.Value)
@@ -122,24 +123,91 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         return self.ip_slot.value()
 
     def action_editSelectProgram(self):
+        # Open an instance of the tag editor table.
+        # Give i the name of the program we are editing
+        # Use the program name to place the window object into a global dictionary.
         global windowDict
         progName = self.lst_components.selectedItems()[0].text()
+
         editWindow = EditWindow()
         editWindow.setWindowTitle(progName)
         windowDict[progName] = editWindow
-
         windowDict[progName].show()
+        threading.Thread(target=self.action_load, args=(progName,), daemon=True)
+
+    def action_load(self, progName):
+        # TODO: Handle the returns and search result errors better
+        global windowDict
+        global plc
+        fullTag = f'Program:{progName}.MessageArrayFault'
+        for index, tag in enumerate(plc.TagList):
+            if tag.TagName == fullTag:
+                arrayLength = tag.Size
+                break
+            else:
+                # TODO: PlaceHolder
+                raise 'Unable to find program'
+
+        results = plc.Read(f'Program:{progName}.MessageArrayFault[0].Text', arrayLength)
+        if results.Status != 'Success':
+            windowDict[progName].results = results
+            windowDict[progName].arrayLen = arrayLength
+
+            windowDict[progName].disableTable = False
+        else:
+            windowDict[progName].disableTable = True
 
 
 class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def __init__(self):
         super(EditWindow, self).__init__()
         self.setupUi(self)
+        self.arrayLen = 0
+        self._faultTags = []
+        self._results = None
+        self._disable_Table = None
+        self.disable_Table = True
 
+    @property
+    def faultTags(self):
+        return self._faultTags
+
+    @faultTags.setter
+    def faultTags(self, tags):
+        self._faultTags = tags
+
+    @property
+    def results(self):
+        return self._faultTags
+
+    @results.setter
+    def results(self, result):
+        self._results = result
+        # attempt to parse out results
+        self.parse_results()
+
+    def parse_results(self):
+        for i in range(self.arrayLen):
+            arr_lwr = i*180
+            arr_upr = arr_lwr + 180
+            msg = GeneralMessage(self._results[arr_lwr:arr_upr])
+            self._faultTags.append(GeneralMessage(msg))
+        print(self._faultTags)
+
+    @property
+    def disableTable(self):
+        return self._disable_Table
+
+    @disableTable.setter
+    def disableTable(self, flag):
+        self._disable_Table = flag
+        self.tbl_faults.setEnabled = not flag
+        self.tbl_msg.setEnabled = not flag
 
 
 if __name__ == "__main__":
     import sys
+
     windowDict = {}
     app = QtWidgets.QApplication(sys.argv)
     MainWindow = Application()
