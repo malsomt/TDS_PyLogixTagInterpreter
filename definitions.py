@@ -7,23 +7,65 @@ from struct import unpack_from
 # class matched UDT in TDS template
 class GeneralMessage:
     # UDT defined as 180 bytes
-    def __int__(self, byteArray):
+    def __init__(self, byteArray):
         assert isinstance(byteArray, bytes) and len(byteArray)
-        with LogixUnpack as lu:
-            try:
-                self.Id = lu.unpack_DINT(byteArray[:3])
-                self.Text = lu.unpack_STRING(byteArray[4:91])
-                self.AltText = lu.unpack_STRING(byteArray[91:])
+        lu = LogixUnpack()
+        try:
+            self.Id = lu.unpack_DINT(byteArray[:3])
+            self.Text = lu.unpack_STRING(byteArray[4:90])
+            self.AltText = lu.unpack_STRING(byteArray[90:])
 
-            except IndexError as e:
-                raise f'General Message could not parse the passed array. Check the size of the array: {e}'
+        except IndexError as e:
+            raise f'General Message could not parse the passed array. Check the size of the array: {e}'
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return f'ID: {self.Id}\nText: {self.Text}\nAltText: {self.AltText}\n'
+
+
+class GeneralMessageTableItem(GeneralMessage):
+    def __init__(self, byteArray):
+        super().__init__(byteArray)
+        self._edits = False
+        # Maintain
+        self._newId = ''
+        self._newText = ''
+        self._newAltText = ''
+
+    @property
+    def newId(self):
+        return self._newId
+
+    @newId.setter
+    def newId(self, val):
+        assert isinstance(val, int)
+        self._newId = val
+
+    @property
+    def newText(self):
+        return self._newText
+
+    @newText.setter
+    def newText(self, val):
+        assert isinstance(val, str)
+        assert len(val) <= 82  # Max message length is 82 characters
+        self._newText = val
 
 
 class LogixUnpack:
+    def __init__(self):
+        pass
+
+    def __enter__(self):
+        return self
+
     @staticmethod
     def unpack_DINT(byteArray):
+        # return DINT, no need to unpack tuple
         return unpack_from('<H', byteArray, 0)[0]
 
     def unpack_STRING(self, byteArray):
         length = self.unpack_DINT(byteArray[:4])
-        return str(unpack_from(f'{length[0]}s', byteArray, 4)[0], 'utf-8')
+        return str(unpack_from(f'{length}s', byteArray, 4)[0], 'utf-8')

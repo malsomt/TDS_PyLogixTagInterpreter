@@ -54,7 +54,9 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.lst_components.clear()
         self.connected = False
         global windowDict
+        global plc
         windowDict = {}  # clear window dictionary
+        plc = None  # Clear plc tag
 
     def toggleTargetSetup(self, flag):
         self.ip_1.setEnabled(flag)
@@ -133,7 +135,8 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         editWindow.setWindowTitle(progName)
         windowDict[progName] = editWindow
         windowDict[progName].show()
-        threading.Thread(target=self.action_load, args=(progName,), daemon=True)
+        thread = threading.Thread(target=self.action_load, args=(progName,), daemon=True)
+        thread.start()
 
     def action_load(self, progName):
         # TODO: Handle the returns and search result errors better
@@ -143,16 +146,13 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         for index, tag in enumerate(plc.TagList):
             if tag.TagName == fullTag:
                 arrayLength = tag.Size
+                # DEBUG # print(f'Found {tag.TagName} == {fullTag} == {arrayLength}')
                 break
-            else:
-                # TODO: PlaceHolder
-                raise 'Unable to find program'
 
-        results = plc.Read(f'Program:{progName}.MessageArrayFault[0].Text', arrayLength)
-        if results.Status != 'Success':
+        results = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength)
+        if results.Status == 'Success':
+            windowDict[progName].arrayLen = arrayLength  # ensure to set the length before the results
             windowDict[progName].results = results
-            windowDict[progName].arrayLen = arrayLength
-
             windowDict[progName].disableTable = False
         else:
             windowDict[progName].disableTable = True
@@ -190,8 +190,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         for i in range(self.arrayLen):
             arr_lwr = i*180
             arr_upr = arr_lwr + 180
-            msg = GeneralMessage(self._results[arr_lwr:arr_upr])
-            self._faultTags.append(GeneralMessage(msg))
+            self._faultTags.append(GeneralMessage(self._results.Value[arr_lwr:arr_upr]))
+            #print(f'arr_lwr={arr_lwr}  arr_upr={arr_upr}')
         print(self._faultTags)
 
     @property
