@@ -1,4 +1,10 @@
+import csv
+import io
 import time
+
+from PyQt5.QtCore import QEvent
+from PyQt5.QtGui import QKeySequence
+from PyQt5.QtWidgets import QApplication
 
 from MainWindow import *
 from MessageWindow import *
@@ -23,6 +29,13 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.lst_components.doubleClicked.connect(self.action_editSelectProgram)
         self._connected = None
         self.connected = False
+
+    def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
+        # Close all Open Windows before killing main App
+        global windowDict
+        if len(windowDict):
+            for win in windowDict:
+                windowDict[win].close()
 
     @property
     def connected(self):
@@ -84,6 +97,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
             plc.GetTagList()
             self.status_disp.setText('Connected to PLC')
             self.connected = True
+            self.action_loadPrograms()
 
         else:
             self.status_disp.setText(plc_time.Status)
@@ -134,20 +148,25 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         editWindow = EditWindow()
         editWindow.setWindowTitle(progName)
         windowDict[progName] = editWindow
-        windowDict[progName].show()
         thread = threading.Thread(target=self.action_load, args=(progName,), daemon=True)
         thread.start()
+        windowDict[progName].show()
 
     def action_load(self, progName):
         # TODO: Handle the returns and search result errors better
         global windowDict
         global plc
+        arrayLength = 0
         fullTag = f'Program:{progName}.MessageArrayFault'
         for index, tag in enumerate(plc.TagList):
             if tag.TagName == fullTag:
                 arrayLength = tag.Size
                 # DEBUG # print(f'Found {tag.TagName} == {fullTag} == {arrayLength}')
                 break
+                # TODO: Placeholder, insert exception
+        if arrayLength == 0:
+            print('Killed Thread')
+            return 0  # Kill thread
 
         results = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength)
         if results.Status == 'Success':
@@ -167,6 +186,123 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self._results = None
         self._disable_Table = None
         self.disable_Table = True
+        #self.tbl_faults.itemChanged.connect(self.action_itemEdited)
+        self.installEventFilter(self)
+
+    def eventFilter(self, source, event):
+        modifiers = QApplication.keyboardModifiers()
+        if event.type() == QEvent.KeyPress and event.matches(QKeySequence.Copy):
+            self.copy_selection()
+            return True
+        elif event.type() == QEvent.KeyPress and event.matches(QKeySequence.Paste):
+            self.paste_selection()
+            return True
+        return super(EditWindow, self).eventFilter(source, event)
+
+    def copy_selection(self):
+        if self.currentIndex() == 0:
+            activeTable = self.tbl_faults
+        elif self.currentIndex() == 1:
+            activeTable = self.tbl_msg
+        else:
+            return
+        selection = activeTable.selectedIndexes()
+        if selection:
+            all_rows = []
+            all_columns = []
+            for index in selection:
+                if not index.row() in all_rows:
+                    all_rows.append(index.row())
+                if not index.column() in all_columns:
+                    all_columns.append(index.column())
+            visible_rows = [row for row in all_rows if not activeTable.isRowHidden(row)]
+            visible_columns = [col for col in all_columns if not activeTable.isColumnHidden(col)]
+
+            table = [[""] * len(visible_columns) for _ in range(len(visible_rows))]
+            for index in selection:
+                if index.row() in visible_rows and index.column() in visible_columns:
+                    selection_row = visible_rows.index(index.row())
+                    selection_column = visible_columns.index(index.column())
+                    table[selection_row][selection_column] = index.data()
+            stream = io.StringIO()
+            csv.writer(stream, delimiter="\t").writerows(table)
+            QApplication.clipboard().setText(stream.getvalue())
+
+    def paste_selection(self):
+        try:
+            if self.currentIndex() == 0:
+                activeTable = self.tbl_faults
+            elif self.currentIndex() == 1:
+                activeTable = self.tbl_msg
+            else:
+                return
+            selection = activeTable.selectedIndexes()
+            if selection:
+                model = activeTable.model()
+                buffer = QApplication.clipboard().text()
+                all_rows = []
+                all_columns = []
+                for index in selection:
+                    if not index.row() in all_rows:
+                        all_rows.append(index.row())
+                    if not index.column() in all_columns:
+                        all_columns.append(index.column())
+                reader = csv.reader(io.StringIO(buffer), delimiter="\t")
+                arr = [[cell for cell in row] for row in reader]
+                print(arr)
+                if len(arr) > 0:
+                    nrows = len(arr)
+                    ncols = len(arr[0])
+                    if len(all_rows) == 1 and len(all_columns) == 1:
+                        # Only the top-left cell is highlighted.
+                        for i in range(nrows):
+                            insert_rows = [all_rows[0]]
+                            row = insert_rows[0]
+                            while len(insert_rows) < nrows:
+                                row += 1
+                                if not activeTable.isRowHidden(row):
+                                    insert_rows.append(row)
+                        for j in range(ncols):
+                            insert_columns = [all_columns[0]]
+                            col = insert_columns[0]
+                            while len(insert_columns) < ncols:
+                                col += 1
+                                if not activeTable.isColumnHidden(col):
+                                    insert_columns.append(col)
+                        for i, insert_row in enumerate(insert_rows):
+                            for j, insert_column in enumerate(insert_columns):
+                                cell = arr[i][j]
+                                model.setData(model.index(insert_row, insert_column), cell)
+                    else:
+                        # Assume the selection size matches the clipboard data size.
+                        for index in selection:
+                            selection_row = all_rows.index(index.row())
+                            selection_column = all_columns.index(index.column())
+                            model.setData(model.index(index.row(), index.column()), arr[selection_row][selection_column])
+            return
+        except IndexError:
+            # Ignore Index Error , re-create by selecting more cells than clipboard has available.
+            pass
+
+    def parse_results(self):
+        for i in range(self.arrayLen):
+            arr_lwr = i*180
+            arr_upr = arr_lwr + 180
+            self._faultTags.append(GeneralMessage(self._results.Value[arr_lwr:arr_upr]))
+            #print(f'arr_lwr={arr_lwr}  arr_upr={arr_upr}')
+        print(self._faultTags)
+        self.display_results()
+
+    def display_results(self):
+        self.tbl_faults.setRowCount(self.arrayLen)
+        for row, tag in enumerate(self._faultTags):
+            self.tbl_faults.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
+            self.tbl_faults.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
+        self.tbl_faults.update()
+
+    def action_itemEdited(self):
+        item = self.tbl_faults.currentItem()
+        print(item.text())
 
     @property
     def faultTags(self):
@@ -185,14 +321,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self._results = result
         # attempt to parse out results
         self.parse_results()
-
-    def parse_results(self):
-        for i in range(self.arrayLen):
-            arr_lwr = i*180
-            arr_upr = arr_lwr + 180
-            self._faultTags.append(GeneralMessage(self._results.Value[arr_lwr:arr_upr]))
-            #print(f'arr_lwr={arr_lwr}  arr_upr={arr_upr}')
-        print(self._faultTags)
 
     @property
     def disableTable(self):

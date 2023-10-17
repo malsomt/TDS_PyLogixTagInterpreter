@@ -20,8 +20,10 @@ class Ui_EditTable(object):
         self.gridLayout = QtWidgets.QGridLayout(self.tab_faults)
         self.gridLayout.setObjectName("gridLayout")
         self.tbl_faults = QtWidgets.QTableWidget(self.tab_faults)
+        self.tbl_faults.setTabKeyNavigation(False)
         self.tbl_faults.setAlternatingRowColors(True)
         self.tbl_faults.setGridStyle(QtCore.Qt.SolidLine)
+        self.tbl_faults.setWordWrap(False)
         self.tbl_faults.setObjectName("tbl_faults")
         self.tbl_faults.setColumnCount(2)
         self.tbl_faults.setRowCount(0)
@@ -77,7 +79,7 @@ class Ui_EditTable(object):
         EditTable.addTab(self.tab_msg, "")
 
         self.retranslateUi(EditTable)
-        EditTable.setCurrentIndex(1)
+        EditTable.setCurrentIndex(0)
         QtCore.QMetaObject.connectSlotsByName(EditTable)
 
     def retranslateUi(self, EditTable):
