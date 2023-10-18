@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>932</width>
-    <height>685</height>
+    <width>884</width>
+    <height>660</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -69,20 +69,21 @@
       </property>
       <layout class="QHBoxLayout" name="horizontalLayout">
        <item>
-        <spacer name="horizontalSpacer">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
+        <widget class="QLineEdit" name="status_fault">
+         <property name="enabled">
+          <bool>false</bool>
          </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>40</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
+        </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="btn_reload">
+        <widget class="QPushButton" name="btn_msg_send">
+         <property name="text">
+          <string>Send</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btn_fault_reload">
          <property name="text">
           <string>Reload</string>
          </property>
@@ -93,7 +94,7 @@
     </item>
    </layout>
   </widget>
-  <widget class="QWidget" name="tab_msg">
+  <widget class="QWidget" name="tab_msgs">
    <attribute name="title">
     <string>Messages</string>
    </attribute>
@@ -134,20 +135,21 @@
       </property>
       <layout class="QHBoxLayout" name="horizontalLayout_2">
        <item>
-        <spacer name="horizontalSpacer_2">
-         <property name="orientation">
-          <enum>Qt::Horizontal</enum>
+        <widget class="QLineEdit" name="status_msg">
+         <property name="enabled">
+          <bool>false</bool>
          </property>
-         <property name="sizeHint" stdset="0">
-          <size>
-           <width>786</width>
-           <height>20</height>
-          </size>
-         </property>
-        </spacer>
+        </widget>
        </item>
        <item>
-        <widget class="QPushButton" name="btn_reload_2">
+        <widget class="QPushButton" name="btn_fault_send">
+         <property name="text">
+          <string>Send</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="btn_msg_reload">
          <property name="text">
           <string>Reload</string>
          </property>
