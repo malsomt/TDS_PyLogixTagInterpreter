@@ -3,8 +3,8 @@ import io
 import time
 
 from PyQt5.QtCore import QEvent
-from PyQt5.QtGui import QKeySequence
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QKeySequence, QBrush
+from PyQt5.QtWidgets import QApplication, QDialogButtonBox
 
 from MainWindow import *
 from MessageWindow import *
@@ -148,30 +148,41 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         editWindow = EditWindow()
         editWindow.setWindowTitle(progName)
         windowDict[progName] = editWindow
-        thread = threading.Thread(target=self.action_load, args=(progName,), daemon=True)
+        thread = threading.Thread(target=self.action_loadAll, args=(progName,), daemon=True)
         thread.start()
         windowDict[progName].show()
 
-    def action_load(self, progName):
+    def action_loadAll(self, progName):
         # TODO: Handle the returns and search result errors better
         global windowDict
         global plc
-        arrayLength = 0
-        fullTag = f'Program:{progName}.MessageArrayFault'
+        arrayLength_fault = 0
+        arrayLength_msgs = 0
+        fullTag_fault = f'Program:{progName}.MessageArrayFault'
+        fullTag_msgs = f'Program:{progName}.MessageArrayOperator'
+
+        # Get the length of the arrays from the tag info in the plc object
         for index, tag in enumerate(plc.TagList):
-            if tag.TagName == fullTag:
-                arrayLength = tag.Size
-                # DEBUG # print(f'Found {tag.TagName} == {fullTag} == {arrayLength}')
+            if tag.TagName == fullTag_fault:
+                arrayLength_fault = tag.Size
+            elif tag.TagName == fullTag_msgs:
+                arrayLength_msgs = tag.Size
+            if arrayLength_fault != 0 and arrayLength_msgs != 0:
                 break
-                # TODO: Placeholder, insert exception
-        if arrayLength == 0:
+
+                # TODO: Placeholder, insert exception, update for messages
+        if arrayLength_fault == 0:
             print('Killed Thread')
             return 0  # Kill thread
 
-        results = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength)
-        if results.Status == 'Success':
-            windowDict[progName].arrayLen = arrayLength  # ensure to set the length before the results
-            windowDict[progName].results = results
+        results_fault = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength_fault)
+        results_msgs = plc.Read(f'Program:{progName}.MessageArrayOperator[0]', arrayLength_msgs)
+        if results_fault.Status == 'Success' and results_msgs.Status == 'Success':
+            windowDict[progName].arrayLen_faults = arrayLength_fault  # ensure to set the length before the results_fault
+            windowDict[progName].arrayLen_msgs = arrayLength_msgs
+            # TODO: update new results property
+            windowDict[progName].results_fault = results_fault
+            windowDict[progName].results_msgs = results_msgs
             windowDict[progName].disableTable = False
         else:
             windowDict[progName].disableTable = True
@@ -181,12 +192,17 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def __init__(self):
         super(EditWindow, self).__init__()
         self.setupUi(self)
-        self.arrayLen = 0
+        self.ignoreChangeEvent = False
+        self.arrayLen_faults = 0
+        self.arrayLen_msgs = 0
         self._faultTags = []
-        self._results = None
+        self._messageTags = []
+        self._results_fault = None
+        self._results_msgs = None
         self._disable_Table = None
         self.disable_Table = True
-        #self.tbl_faults.itemChanged.connect(self.action_itemEdited)
+        self.tbl_faults.itemChanged.connect(self.action_itemEdited_fault)
+        self.tbl_msgs.itemChanged.connect(self.action_itemEdited_msg)
         self.installEventFilter(self)
 
     def eventFilter(self, source, event):
@@ -203,7 +219,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         if self.currentIndex() == 0:
             activeTable = self.tbl_faults
         elif self.currentIndex() == 1:
-            activeTable = self.tbl_msg
+            activeTable = self.tbl_msgs
         else:
             return
         selection = activeTable.selectedIndexes()
@@ -233,7 +249,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             if self.currentIndex() == 0:
                 activeTable = self.tbl_faults
             elif self.currentIndex() == 1:
-                activeTable = self.tbl_msg
+                activeTable = self.tbl_msgs
             else:
                 return
             selection = activeTable.selectedIndexes()
@@ -284,25 +300,61 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             # Ignore Index Error , re-create by selecting more cells than clipboard has available.
             pass
 
-    def parse_results(self):
-        for i in range(self.arrayLen):
-            arr_lwr = i*180
-            arr_upr = arr_lwr + 180
-            self._faultTags.append(GeneralMessage(self._results.Value[arr_lwr:arr_upr]))
-            #print(f'arr_lwr={arr_lwr}  arr_upr={arr_upr}')
-        print(self._faultTags)
-        self.display_results()
+    def parse_results(self, type):
+        if type == 'faults':
+            for i in range(self.arrayLen_faults):
+                arr_lwr = i * 180
+                arr_upr = arr_lwr + 180
+                self._faultTags.append(GeneralMessageExt(self._results_fault.Value[arr_lwr:arr_upr]))
+        elif type == 'messages':
+            for i in range(self.arrayLen_msgs):
+                arr_lwr = i * 180
+                arr_upr = arr_lwr + 180
+                self._messageTags.append(GeneralMessageExt(self._results_msgs.Value[arr_lwr:arr_upr]))
+        self.display_results_fault()
+        self.display_results_msgs()
 
-    def display_results(self):
-        self.tbl_faults.setRowCount(self.arrayLen)
+    def display_results_fault(self):
+        self.ignoreChangeEvent = True
+        self.tbl_faults.setRowCount(self.arrayLen_faults)
         for row, tag in enumerate(self._faultTags):
             self.tbl_faults.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
             self.tbl_faults.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
         self.tbl_faults.update()
+        self.ignoreChangeEvent = False
 
-    def action_itemEdited(self):
-        item = self.tbl_faults.currentItem()
-        print(item.text())
+    def display_results_msgs(self):
+        self.ignoreChangeEvent = True
+        self.tbl_msgs.setRowCount(self.arrayLen_msgs)
+        for row, tag in enumerate(self._messageTags):
+            self.tbl_msgs.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
+            self.tbl_msgs.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
+        self.tbl_msgs.update()
+        self.ignoreChangeEvent = False
+
+    def action_itemEdited_fault(self, item):
+        assert isinstance(item, QtWidgets.QTableWidgetItem)
+        if self.ignoreChangeEvent:  # ignore action when populating table
+            return
+        # row should align with the list index of tags
+        if item.column() == 0:  # Aligns with .Id
+            try:
+                self.faultTags[item.row()].newId = int(item.text())
+            except ValueError:
+                item.setText(str(self.faultTags[item.row()].newId))
+                print(f'Attempted to set Id to non-INTEGER value.')
+        elif item.column() == 1:  # Aligns with .Text
+            try:
+                self.faultTags[item.row()].newText = item.text()
+            except Exception:
+                print("No Idea what happened...don't try whatever you did again.\nThat's One...")
+        print(f'Flag has been set to {self.faultTags[item.row()].edits}')
+        if self.faultTags[item.row()].edits:
+            # TODO: Look into the QBrush class and set up a background color
+            pass
+
+    def action_itemEdited_msg(self):
+        pass
 
     @property
     def faultTags(self):
@@ -313,14 +365,24 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self._faultTags = tags
 
     @property
-    def results(self):
-        return self._faultTags
+    def results_fault(self):
+        return self._results_fault
 
-    @results.setter
-    def results(self, result):
-        self._results = result
+    @results_fault.setter
+    def results_fault(self, result):
+        self._results_fault = result
         # attempt to parse out results
-        self.parse_results()
+        self.parse_results('faults')
+
+    @property
+    def results_msgs(self):
+        return self._results_msgs
+
+    @results_msgs.setter
+    def results_msgs(self, result):
+        self._results_msgs = result
+        # attempt to parse out results
+        self.parse_results('messages')
 
     @property
     def disableTable(self):
@@ -330,7 +392,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def disableTable(self, flag):
         self._disable_Table = flag
         self.tbl_faults.setEnabled = not flag
-        self.tbl_msg.setEnabled = not flag
+        self.tbl_msgs.setEnabled = not flag
 
 
 if __name__ == "__main__":

@@ -25,14 +25,14 @@ class GeneralMessage:
         return f'ID: {self.Id}\nText: {self.Text}\nAltText: {self.AltText}\n'
 
 
-class GeneralMessageTableItem(GeneralMessage):
+class GeneralMessageExt(GeneralMessage):
     def __init__(self, byteArray):
         super().__init__(byteArray)
-        self._edits = False
+        self.edits = False
         # Maintain
-        self._newId = ''
-        self._newText = ''
-        self._newAltText = ''
+        self._newId = self.Id
+        self._newText = self.Text
+        self._newAltText = self.AltText
 
     @property
     def newId(self):
@@ -42,6 +42,10 @@ class GeneralMessageTableItem(GeneralMessage):
     def newId(self, val):
         assert isinstance(val, int)
         self._newId = val
+        if self._newId == self.Id:
+            self.edits = False
+        else:
+            self.edits = True
 
     @property
     def newText(self):
@@ -52,6 +56,25 @@ class GeneralMessageTableItem(GeneralMessage):
         assert isinstance(val, str)
         assert len(val) <= 82  # Max message length is 82 characters
         self._newText = val
+        if self._newText == self.Text:
+            self.edits = False
+        else:
+            self.edits = True
+
+
+    @property
+    def newAltText(self):
+        return self._newText
+
+    @newAltText.setter
+    def newAltText(self, val):
+        assert isinstance(val, str)
+        assert len(val) <= 82  # Max message length is 82 characters
+        self._newAltText = val
+        if self._newAltText == self.AltText:
+            self.edits = False
+        else:
+            self.edits = True
 
 
 class LogixUnpack:
