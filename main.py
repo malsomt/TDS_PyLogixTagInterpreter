@@ -8,7 +8,6 @@ from PyQt5.QtWidgets import QApplication, QDialogButtonBox
 
 from MainWindow import *
 from MessageWindow import *
-import pylogix
 import threading
 from definitions import *
 
@@ -50,7 +49,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
     def action_connectToPLC(self):
         self.status_disp.setText('Attempting to connect...')
         global plc
-        plc = pylogix.PLC()
+        plc = PLCExt()
         ip = self.getMainWindowIP()
         slot = self.getMainWindowSlot()
 
@@ -82,11 +81,9 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def start_ConnectToPLC(self):
         # Define thread and start function on parallel thread
-        global thread1
         try:
-            thread1 = threading.Thread(target=self.connection_test)
-            thread1.setDaemon(True)
-            thread1.start()
+            thread = threading.Thread(target=self.connection_test, daemon=True)
+            thread.start()
         except Exception as e:
             print('unable to start connection_test, ' + str(e))
 
@@ -358,6 +355,11 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.ignoreChangeEvent = False
         self.status_msg.setText(f'Loaded {self.tbl_msgs.rowCount()} messages from PLC')
 
+    def send_faults(self, changeList):
+        global plc
+        plc.Write()
+        pass
+
     def action_itemEdited_fault(self, item):
         assert isinstance(item, QtWidgets.QTableWidgetItem)
         if self.ignoreChangeEvent:  # ignore action when populating table
@@ -412,10 +414,17 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         thread = threading.Thread(target=self.action_loadMessages, args=(progName,), daemon=True)
         thread.start()
 
-    def action_send_msgs(self):
-        pass
-
     def action_send_faults(self):
+        changeList = []
+        for index, fault in enumerate(self.faultTags):
+            assert isinstance(fault, GeneralMessageExt)
+            if fault.edits:
+                changeList.append((index, fault))
+        if len(changeList):
+            thread = threading.Thread(target=self.send_faults, args=(changeList, ), daemon=True)
+            thread.start()
+
+    def action_send_msgs(self):
         pass
 
     @property

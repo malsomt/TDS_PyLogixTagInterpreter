@@ -1,4 +1,5 @@
 from struct import unpack_from
+import pylogix
 
 
 # Use this space to define UDTs in the controller you need to parse.
@@ -91,3 +92,27 @@ class LogixUnpack:
     def unpack_STRING(self, byteArray):
         length = self.unpack_DINT(byteArray[:4])
         return str(unpack_from(f'{length}s', byteArray, 4)[0], 'utf-8')
+
+
+class PLCExt(pylogix.PLC):
+    # Extend PLC class from pylogix to have basic flag to control threading access control on single instance
+    # checking busy flag will fall on the calling thread to ensure busy is false before making the call.
+    def __init__(self):
+        super(PLCExt, self).__init__()
+        self._busy = False
+
+    def Read(self, tag, count=1, datatype=None):
+        self._busy = True
+        ret = super(PLCExt, self).Read(tag, count=count, datatype=datatype)
+        self._busy = False
+        return ret
+
+    def Write(self, tag, value=None, datatype=None):
+        self._busy = True
+        ret = super(PLCExt, self).Write(tag, value=value, datatype=datatype)
+        self._busy = False
+        return ret
+
+    @property
+    def busy(self):
+        return self._busy
