@@ -61,7 +61,6 @@ class GeneralMessageExt(GeneralMessage):
         else:
             self.edits = True
 
-
     @property
     def newAltText(self):
         return self._newText

@@ -174,39 +174,55 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def show(self):  # Extend Base Class show
         super(EditWindow, self).show()
         progName = self.windowTitle()
-        thread = threading.Thread(target=self.action_loadAll, args=(progName,), daemon=True)
+        thread = threading.Thread(target=self.action_loadFaults, args=(progName,), daemon=True)
         thread.start()
+        thread.join()
+        thread2 = threading.Thread(target=self.action_loadMessages, args=(progName,), daemon=True)
+        thread2.start()
 
-    def action_loadAll(self, progName):
+    def action_loadMessages(self, progName):
+        arrayLength_msgs = 0
+        fullTag_msgs = f'Program:{progName}.MessageArrayOperator'
+        for index, tag in enumerate(plc.TagList):
+            if tag.TagName == fullTag_msgs:
+                arrayLength_msgs = tag.Size
+            if arrayLength_msgs != 0:
+                break
+        if arrayLength_msgs == 0:
+            print('Killed Message Thread')
+            return  # Kill thread
+
+        results_msgs = plc.Read(f'Program:{progName}.MessageArrayOperator[0]', arrayLength_msgs)
+        if results_msgs.Status == 'Success':
+            self.arrayLen_msgs = arrayLength_msgs
+            # TODO: update new results property
+            self.results_msgs = results_msgs
+            self.disableTable = False
+        else:
+            self.disableTable = True
+
+    def action_loadFaults(self, progName):
         # TODO: Handle the returns and search result errors better
         global windowDict
         global plc
         arrayLength_fault = 0
-        arrayLength_msgs = 0
         fullTag_fault = f'Program:{progName}.MessageArrayFault'
-        fullTag_msgs = f'Program:{progName}.MessageArrayOperator'
-
         # Get the length of the arrays from the tag info in the plc object
         for index, tag in enumerate(plc.TagList):
             if tag.TagName == fullTag_fault:
                 arrayLength_fault = tag.Size
-            elif tag.TagName == fullTag_msgs:
-                arrayLength_msgs = tag.Size
-            if arrayLength_fault != 0 and arrayLength_msgs != 0:
+            if arrayLength_fault != 0:
                 break
                 # TODO: Placeholder, insert exception, update for messages
         if arrayLength_fault == 0:
-            print('Killed Thread')
-            return 0  # Kill thread
+            print('Killed Fault Thread')
+            return  # Kill thread
 
         results_fault = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength_fault)
-        results_msgs = plc.Read(f'Program:{progName}.MessageArrayOperator[0]', arrayLength_msgs)
-        if results_fault.Status == 'Success' and results_msgs.Status == 'Success':
+        if results_fault.Status == 'Success':
             self.arrayLen_faults = arrayLength_fault  # ensure to set the length before the results_fault
-            self.arrayLen_msgs = arrayLength_msgs
             # TODO: update new results property
             self.results_fault = results_fault
-            self.results_msgs = results_msgs
             self.disableTable = False
         else:
             self.disableTable = True
@@ -387,16 +403,14 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def action_reload_faults(self):
         self.status_fault.setText('Loading Tags from PLC...')
         progName = self.windowTitle()
-        thread = threading.Thread(target=self.action_loadAll, args=(progName,), daemon=True)
+        thread = threading.Thread(target=self.action_loadFaults, args=(progName,), daemon=True)
         thread.start()
 
     def action_reload_msgs(self):
-        # TODO Break action_loadAll into a loadFaults and loadMsgs!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # self.status_fault.setText('Loading Tags from PLC...')
-        # progName = self.windowTitle()
-        # thread = threading.Thread(target=self.action_loadAll, args=(progName,), daemon=True)
-        # thread.start()
-        pass
+        self.status_msg.setText('Loading Tags from PLC...')
+        progName = self.windowTitle()
+        thread = threading.Thread(target=self.action_loadMessages, args=(progName,), daemon=True)
+        thread.start()
 
     def action_send_msgs(self):
         pass
