@@ -8,16 +8,24 @@ import pylogix
 # class matched UDT in TDS template
 class GeneralMessage:
     # UDT defined as 180 bytes
+    # GeneralMessage.Id : DINT
+    # GeneralMessage.Text : STRING
+    # GeneralMessage.AltText : STRING
     def __init__(self, byteArray):
-        assert isinstance(byteArray, bytes) and len(byteArray)
-        lu = LogixUnpack()
-        try:
-            self.Id = lu.unpack_DINT(byteArray[:3])
-            self.Text = lu.unpack_STRING(byteArray[4:90])
-            self.AltText = lu.unpack_STRING(byteArray[90:])
+        if byteArray is not None:
+            assert isinstance(byteArray, bytes) and len(byteArray)
+            lu = LogixUnpack()
+            try:
+                self.Id = lu.unpack_DINT(byteArray[:3])
+                self.Text = lu.unpack_STRING(byteArray[4:90])
+                self.AltText = lu.unpack_STRING(byteArray[90:])
 
-        except IndexError as e:
-            raise f'General Message could not parse the passed array. Check the size of the array: {e}'
+            except IndexError as e:
+                raise f'General Message could not parse the passed array. Check the size of the array: {e}'
+        else:
+            self.Id = 0
+            self.Text = ''
+            self.AltText = ''
 
     def __repr__(self):
         return self.__str__()
@@ -27,10 +35,11 @@ class GeneralMessage:
 
 
 class GeneralMessageExt(GeneralMessage):
-    def __init__(self, byteArray):
+    # GeneralMessage class extended to include edit flag and ._newXXX for use when editing table
+    def __init__(self, byteArray=None):
         super().__init__(byteArray)
         self.edits = False
-        # Maintain
+        # Constructor to Copy Base class values initially
         self._newId = self.Id
         self._newText = self.Text
         self._newAltText = self.AltText

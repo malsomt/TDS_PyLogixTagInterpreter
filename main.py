@@ -171,13 +171,13 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def show(self):  # Extend Base Class show
         super(EditWindow, self).show()
         progName = self.windowTitle()
-        thread = threading.Thread(target=self.action_loadFaults, args=(progName,), daemon=True)
+        thread = threading.Thread(target=self.loadFaults, args=(progName,), daemon=True)
         thread.start()
         thread.join()
-        thread2 = threading.Thread(target=self.action_loadMessages, args=(progName,), daemon=True)
+        thread2 = threading.Thread(target=self.loadMessages, args=(progName,), daemon=True)
         thread2.start()
 
-    def action_loadMessages(self, progName):
+    def loadMessages(self, progName):
         arrayLength_msgs = 0
         fullTag_msgs = f'Program:{progName}.MessageArrayOperator'
         for index, tag in enumerate(plc.TagList):
@@ -198,7 +198,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         else:
             self.disableTable = True
 
-    def action_loadFaults(self, progName):
+    def loadFaults(self, progName):
         # TODO: Handle the returns and search result errors better
         global windowDict
         global plc
@@ -219,7 +219,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         if results_fault.Status == 'Success':
             self.arrayLen_faults = arrayLength_fault  # ensure to set the length before the results_fault
             # TODO: update new results property
-            self.results_fault = results_fault
+            self.results_fault = results_fault  # setter will trigger parsing function
             self.disableTable = False
         else:
             self.disableTable = True
@@ -320,12 +320,18 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             pass
 
     def parse_results(self, type):
+        """Parse the result byte stream."""
+        # General message UDT is defined as 180bytes from the plc
+        # Break the result into 180 byte chunks and pass them to a General Message object.
+        # GeneralMessage class will parse the block into its individual elements.
         if type == 'faults':
+            self._faultTags = []
             for i in range(self.arrayLen_faults):
                 arr_lwr = i * 180
                 arr_upr = arr_lwr + 180
                 self._faultTags.append(GeneralMessageExt(self._results_fault.Value[arr_lwr:arr_upr]))
         elif type == 'messages':
+            self._messageTags = []
             for i in range(self.arrayLen_msgs):
                 arr_lwr = i * 180
                 arr_upr = arr_lwr + 180
@@ -342,6 +348,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             self.tbl_faults.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
         self.tbl_faults.update()
         self.ignoreChangeEvent = False
+        #TODO: Change the lbl update to a function that adds date/time stamp
         self.status_fault.setText(f'Loaded {self.tbl_faults.rowCount()} messages from PLC')
 
     def display_results_msgs(self):
@@ -357,8 +364,29 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
 
     def send_faults(self, changeList):
         global plc
-        plc.Write()
-        pass
+        assert isinstance(plc, PLCExt)
+        progName = self.windowTitle()
+        while plc.busy:  # Simple wait if plc object is busy.
+            time.sleep(.01)
+        for index, fault in changeList:
+            assert isinstance(fault, GeneralMessageExt)
+            print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
+            plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
+            plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
+
+    def send_msgs(self, changeList):
+        global plc
+        assert isinstance(plc, PLCExt)
+        progName = self.windowTitle()
+        while plc.busy:  # Simple wait if plc object is busy.
+            time.sleep(.01)
+        for index, msg in changeList:
+            assert isinstance(msg, GeneralMessageExt)
+            print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
+            plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
+            plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
+            plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
 
     def action_itemEdited_fault(self, item):
         assert isinstance(item, QtWidgets.QTableWidgetItem)
@@ -405,27 +433,77 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def action_reload_faults(self):
         self.status_fault.setText('Loading Tags from PLC...')
         progName = self.windowTitle()
-        thread = threading.Thread(target=self.action_loadFaults, args=(progName,), daemon=True)
+        thread = threading.Thread(target=self.loadFaults, args=(progName,), daemon=True)
         thread.start()
 
     def action_reload_msgs(self):
         self.status_msg.setText('Loading Tags from PLC...')
         progName = self.windowTitle()
-        thread = threading.Thread(target=self.action_loadMessages, args=(progName,), daemon=True)
+        thread = threading.Thread(target=self.loadMessages, args=(progName,), daemon=True)
         thread.start()
 
     def action_send_faults(self):
+        """
+        Checks if selection box to send only the edits is checked.
+        If so...
+        Filter through the Tag list for the edit flag and add them to a list to be sent and addressed by the index.
+        If not...
+        Copy out any tag that has any data into a temp list.
+        Sort that List by Id value
+        Fill the list out with blank tags on the backend so that .ID values of zero are always at the end of the list.
+        Package the changeList as a tuple of (index, GeneralMessage) to keep compatibility with the edits only send.
+        """
         changeList = []
-        for index, fault in enumerate(self.faultTags):
-            assert isinstance(fault, GeneralMessageExt)
-            if fault.edits:
+        if self.chkbx_faultEdit.isChecked():
+            for index, fault in enumerate(self.faultTags):
+                assert isinstance(fault, GeneralMessageExt)
+                if fault.edits:
+                    changeList.append((index, fault))
+        else:
+            tempList = []
+            for fault in self.faultTags:
+                assert isinstance(fault, GeneralMessageExt)
+                # Check if Tag has any data
+                if fault.newId != 0 or fault.newText != '' or fault.newAltText != '':
+                    tempList.append(fault)
+            tempList.sort(key=lambda gm: gm.newId)  # sort list by newId property of the General Messages
+            fillLen = len(self.faultTags) - len(tempList)  # find how many tags are empty
+            for _ in range(fillLen):  # fill in list with blank tags
+                tempList.append(GeneralMessageExt())
+            for index, fault in enumerate(tempList): # Keep compatibility with edit changes and package index w/ tag
                 changeList.append((index, fault))
+
         if len(changeList):
-            thread = threading.Thread(target=self.send_faults, args=(changeList, ), daemon=True)
+            thread = threading.Thread(target=self.send_faults, args=(changeList,), daemon=True)
             thread.start()
 
     def action_send_msgs(self):
-        pass
+        """
+        Replication of action_send_faults.
+        """
+        changeList = []
+        if self.chkbx_msgEdit.isChecked():
+            for index, msg in enumerate(self.messageTags):
+                assert isinstance(msg, GeneralMessageExt)
+                if msg.edits:
+                    changeList.append((index, msg))
+        else:
+            tempList = []
+            for msg in self.messageTags:
+                assert isinstance(msg, GeneralMessageExt)
+                # Check if Tag has any data
+                if msg.newId != 0 or msg.newText != '' or msg.newAltText != '':
+                    tempList.append(msg)
+            tempList.sort(key=lambda gm: gm.newId)  # sort list by newId property of the General Messages
+            fillLen = len(self.messageTags) - len(tempList)  # find how many tags are empty
+            for _ in range(fillLen):  # fill in list with blank tags
+                tempList.append(GeneralMessageExt())
+            for index, msg in enumerate(tempList):  # Keep compatibility with edit changes and package index w/ tag
+                changeList.append((index, msg))
+
+        if len(changeList):
+            thread = threading.Thread(target=self.send_msgs, args=(changeList,), daemon=True)
+            thread.start()
 
     @property
     def faultTags(self):
@@ -451,7 +529,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def results_fault(self, result):
         self._results_fault = result
         # attempt to parse out results
-        self.parse_results('faults')
+        if result is not None:
+            self.parse_results('faults')
 
     @property
     def results_msgs(self):
@@ -461,7 +540,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def results_msgs(self, result):
         self._results_msgs = result
         # attempt to parse out results
-        self.parse_results('messages')
+        if result is not None:
+            self.parse_results('messages')
 
     @property
     def disableTable(self):
