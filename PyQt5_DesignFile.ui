@@ -144,7 +144,7 @@
           <bool>true</bool>
          </property>
          <property name="placeholderText">
-          <string>placeholder</string>
+          <string/>
          </property>
         </widget>
        </item>
@@ -160,21 +160,14 @@
        <string>Components</string>
       </property>
       <layout class="QGridLayout" name="gridLayout">
-       <item row="0" column="2">
-        <widget class="QPushButton" name="btn_loadPrograms">
-         <property name="text">
-          <string>Discover Progs</string>
-         </property>
-        </widget>
-       </item>
        <item row="1" column="2">
-        <widget class="QPushButton" name="pushButton_2">
-         <property name="text">
-          <string>PushButton</string>
+        <widget class="Line" name="line">
+         <property name="orientation">
+          <enum>Qt::Horizontal</enum>
          </property>
         </widget>
        </item>
-       <item row="3" column="2">
+       <item row="4" column="2">
         <spacer name="verticalSpacer">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -187,10 +180,37 @@
          </property>
         </spacer>
        </item>
-       <item row="0" column="1" rowspan="4">
+       <item row="0" column="2">
+        <widget class="QPushButton" name="btn_loadPrograms">
+         <property name="text">
+          <string>Reload</string>
+         </property>
+        </widget>
+       </item>
+       <item row="0" column="1" rowspan="5">
         <widget class="QListWidget" name="lst_components">
          <property name="wordWrap">
           <bool>true</bool>
+         </property>
+        </widget>
+       </item>
+       <item row="2" column="2">
+        <widget class="QPushButton" name="btn_export">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string>Export Tags...</string>
+         </property>
+        </widget>
+       </item>
+       <item row="3" column="2">
+        <widget class="QPushButton" name="btn_import">
+         <property name="text">
+          <string>Import Tags...</string>
          </property>
         </widget>
        </item>
@@ -215,8 +235,6 @@
     <property name="title">
      <string>File</string>
     </property>
-    <addaction name="actionNew"/>
-    <addaction name="actionOpen"/>
     <addaction name="actionClose"/>
    </widget>
    <addaction name="menuFile"/>

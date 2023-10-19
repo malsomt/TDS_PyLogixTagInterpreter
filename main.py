@@ -192,8 +192,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         results_msgs = plc.Read(f'Program:{progName}.MessageArrayOperator[0]', arrayLength_msgs)
         if results_msgs.Status == 'Success':
             self.arrayLen_msgs = arrayLength_msgs
-            # TODO: update new results property
-            self.results_msgs = results_msgs
+            self.results_msgs = results_msgs  # setter will trigger parsing function
             self.disableTable = False
         else:
             self.disableTable = True
@@ -404,7 +403,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 self.faultTags[item.row()].newText = item.text()
             except Exception:
                 print("No Idea what happened...don't try whatever you did again.\nThat's One...")
-        print(f'Flag has been set to {self.faultTags[item.row()].edits}')
+        #print(f'Flag has been set to {self.faultTags[item.row()].edits}')
         if self.faultTags[item.row()].edits:
             # TODO: Look into the QBrush class and set up a background color
             pass
@@ -425,7 +424,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 self.messageTags[item.row()].newText = item.text()
             except Exception:
                 print("No Idea what happened...don't try whatever you did again.\nThat's One...")
-        print(f'Flag has been set to {self.messageTags[item.row()].edits}')
+        #print(f'Flag has been set to {self.messageTags[item.row()].edits}')
         if self.messageTags[item.row()].edits:
             # TODO: Look into the QBrush class and set up a background color
             pass
@@ -448,10 +447,13 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         If so...
         Filter through the Tag list for the edit flag and add them to a list to be sent and addressed by the index.
         If not...
+        Check if checkbox_sorted is checked
+        If so...
         Copy out any tag that has any data into a temp list.
         Sort that List by Id value
         Fill the list out with blank tags on the backend so that .ID values of zero are always at the end of the list.
         Package the changeList as a tuple of (index, GeneralMessage) to keep compatibility with the edits only send.
+        If not...Package ChangeList with all tags in the order they appear in the data table.
         """
         changeList = []
         if self.chkbx_faultEdit.isChecked():
@@ -459,7 +461,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 assert isinstance(fault, GeneralMessageExt)
                 if fault.edits:
                     changeList.append((index, fault))
-        else:
+        elif self.chkbx_faultSort.isChecked():
             tempList = []
             for fault in self.faultTags:
                 assert isinstance(fault, GeneralMessageExt)
@@ -471,6 +473,9 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             for _ in range(fillLen):  # fill in list with blank tags
                 tempList.append(GeneralMessageExt())
             for index, fault in enumerate(tempList): # Keep compatibility with edit changes and package index w/ tag
+                changeList.append((index, fault))
+        else:
+            for index, fault in enumerate(self.faultTags): # Keep compatibility with edit changes and package index w/ tag
                 changeList.append((index, fault))
 
         if len(changeList):
