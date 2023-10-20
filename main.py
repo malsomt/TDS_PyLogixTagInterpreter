@@ -4,8 +4,9 @@ import time
 
 from PyQt5.QtCore import QEvent
 from PyQt5.QtGui import QKeySequence, QBrush
-from PyQt5.QtWidgets import QApplication, QDialogButtonBox
+from PyQt5.QtWidgets import QApplication, QDialogButtonBox, QFileDialog
 
+from ExportWindow import Ui_ExportForm
 from MainWindow import *
 from MessageWindow import *
 import threading
@@ -26,6 +27,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.btn_disconnect.clicked.connect(self.action_disconnectToPLC)
         self.btn_loadPrograms.clicked.connect(self.action_loadPrograms)
         self.lst_components.doubleClicked.connect(self.action_editSelectProgram)
+        self.btn_export.clicked.connect(self.action_export)
         self._connected = None
         self.connected = False
 
@@ -45,6 +47,11 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self._connected = flag
         self.toggleTargetSetup(not flag)
         self.group_components.setEnabled(flag)
+
+    def action_export(self):
+        global windowDict
+        windowDict['ExportDialog'] = Ui_ExportForm()
+        windowDict['ExportDialog'].show()
 
     def action_connectToPLC(self):
         self.status_disp.setText('Attempting to connect...')
@@ -557,6 +564,24 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self._disable_Table = flag
         self.tbl_faults.setEnabled = not flag
         self.tbl_msgs.setEnabled = not flag
+
+
+class ExportWindow(Ui_ExportForm, QtWidgets.QWidget):
+    def __init__(self):
+        super(ExportWindow, self).__init__()
+        self.pbn_Export.clicked.connect(self.action_export)
+        self.pbn_FileExplorer.clicked.connect(self.action_fileDialog)
+
+    def action_export(self):
+        # TODO: Fill
+        pass
+
+    def action_fileDialog(self):
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "",
+                                                  "All Files (*);;Text Files (*.txt)", options=options)
+        self.status_filePath.setText(fileName)  # Set filepath to the line edit box
 
 
 if __name__ == "__main__":
