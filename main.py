@@ -2,11 +2,11 @@ import csv
 import io
 import time
 
-from PyQt5.QtCore import QEvent
+from PyQt5.QtCore import QEvent, Qt
 from PyQt5.QtGui import QKeySequence, QBrush
-from PyQt5.QtWidgets import QApplication, QDialogButtonBox, QFileDialog
+from PyQt5.QtWidgets import QApplication, QFileDialog
 
-from ExportWindow import Ui_ExportForm
+from ExportWindow import Ui_Export_Target
 from MainWindow import *
 from MessageWindow import *
 import threading
@@ -50,8 +50,9 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def action_export(self):
         global windowDict
-        windowDict['ExportDialog'] = Ui_ExportForm()
-        windowDict['ExportDialog'].show()
+        window = ExportWindow()
+        windowDict['ExportDialog'] = window
+        windowDict['ExportDialog'].exec()
 
     def action_connectToPLC(self):
         self.status_disp.setText('Attempting to connect...')
@@ -319,7 +320,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                         for index in selection:
                             selection_row = all_rows.index(index.row())
                             selection_column = all_columns.index(index.column())
-                            model.setData(model.index(index.row(), index.column()), arr[selection_row][selection_column])
+                            model.setData(model.index(index.row(), index.column()),
+                                          arr[selection_row][selection_column])
             return
         except IndexError:
             # Ignore Index Error , re-create by selecting more cells than clipboard has available.
@@ -354,8 +356,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             self.tbl_faults.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
         self.tbl_faults.update()
         self.ignoreChangeEvent = False
-        #TODO: Change the lbl update to a function that adds date/time stamp
-        self.status_fault.setText(f'Loaded {self.tbl_faults.rowCount()} messages from PLC')
+        # TODO: Change the lbl update to a function that adds date/time stamp
+        self.status_fault.setText(f'Loaded {self.tbl_faults.rowCount()} faults from PLC')
 
     def display_results_msgs(self):
         self.ignoreChangeEvent = True
@@ -377,6 +379,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         for index, fault in changeList:
             assert isinstance(fault, GeneralMessageExt)
             print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            self.status_fault.setText(f'Sending Program:{progName}.MessageArrayFault[{index}]')
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
@@ -410,7 +413,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 self.faultTags[item.row()].newText = item.text()
             except Exception:
                 print("No Idea what happened...don't try whatever you did again.\nThat's One...")
-        #print(f'Flag has been set to {self.faultTags[item.row()].edits}')
+        # print(f'Flag has been set to {self.faultTags[item.row()].edits}')
         if self.faultTags[item.row()].edits:
             # TODO: Look into the QBrush class and set up a background color
             pass
@@ -431,7 +434,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 self.messageTags[item.row()].newText = item.text()
             except Exception:
                 print("No Idea what happened...don't try whatever you did again.\nThat's One...")
-        #print(f'Flag has been set to {self.messageTags[item.row()].edits}')
+        # print(f'Flag has been set to {self.messageTags[item.row()].edits}')
         if self.messageTags[item.row()].edits:
             # TODO: Look into the QBrush class and set up a background color
             pass
@@ -479,13 +482,15 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             fillLen = len(self.faultTags) - len(tempList)  # find how many tags are empty
             for _ in range(fillLen):  # fill in list with blank tags
                 tempList.append(GeneralMessageExt())
-            for index, fault in enumerate(tempList): # Keep compatibility with edit changes and package index w/ tag
+            for index, fault in enumerate(tempList):  # Keep compatibility with edit changes and package index w/ tag
                 changeList.append((index, fault))
         else:
-            for index, fault in enumerate(self.faultTags): # Keep compatibility with edit changes and package index w/ tag
+            for index, fault in enumerate(
+                    self.faultTags):  # Keep compatibility with edit changes and package index w/ tag
                 changeList.append((index, fault))
 
         if len(changeList):
+            # TODO: Look to change to progressDialogBox
             thread = threading.Thread(target=self.send_faults, args=(changeList,), daemon=True)
             thread.start()
 
@@ -514,6 +519,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 changeList.append((index, msg))
 
         if len(changeList):
+            #TODO Look to change into Progress DialogBox
             thread = threading.Thread(target=self.send_msgs, args=(changeList,), daemon=True)
             thread.start()
 
@@ -566,22 +572,60 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.tbl_msgs.setEnabled = not flag
 
 
-class ExportWindow(Ui_ExportForm, QtWidgets.QWidget):
+class ExportWindow(Ui_Export_Target, QtWidgets.QDialog):
     def __init__(self):
         super(ExportWindow, self).__init__()
+        self.setupUi(self)
+        self.setWindowTitle('Set Export Target Path')
         self.pbn_Export.clicked.connect(self.action_export)
         self.pbn_FileExplorer.clicked.connect(self.action_fileDialog)
+        self._filePath = None
+        self.filePath = ''
 
     def action_export(self):
-        # TODO: Fill
-        pass
+        # Create a custom MessageBox that locks the main thread
+        # Export Message class has extended plc to json function that calls itself on execution
+        # will return with a success of failure
+        global plc
+        progList = plc.GetProgramsList()
+        msg = QtWidgets.QProgressDialog("Copying files...", "Abort Copy", 0, len(progList), self)
+        msg.setWindowModality(Qt.WindowModal)
 
     def action_fileDialog(self):
         options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
+        # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
         fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "",
-                                                  "All Files (*);;Text Files (*.txt)", options=options)
-        self.status_filePath.setText(fileName)  # Set filepath to the line edit box
+                                                  "Json Files (*.json)", options=options)
+        self.filePath = fileName  # Set filepath to the line edit box
+
+    @property
+    def filePath(self):
+        return self._filePath
+
+    @filePath.setter
+    def filePath(self, fp):
+        # Check for empty string, insert more params later if necessary
+        # Enable the Export pushbutton if valid and disable if not.
+        if fp != '':
+            self._filePath = fp
+            self.status_filePath.setText(self._filePath)
+            self.pbn_Export.setEnabled(True)
+        else:
+            self.pbn_Export.setEnabled(False)
+
+
+# class ExportMessage(QtWidgets.QMessageBox):
+#     def __init__(self, filePath):
+#         super(ExportMessage, self).__init__()
+#         self.filePath = filePath
+#         self.setWindowTitle('PLC to json')
+#
+#     def exec(self):
+#         super(self.exec())
+#
+#     def plc_to_json(self):
+#         time.sleep(1)
+#         self.done(0)
 
 
 if __name__ == "__main__":

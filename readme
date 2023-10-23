@@ -13,10 +13,15 @@ Ignore everything below this...
 
 
 
+TLM - 10-23-2023
+CHeck Github Issues for TODO list
+
 TLM - 10-10-2023
 Run the command below to compile the design file into executable python code that will generate a window on runtime.
 
 pyuic5 PyQt5_DesignFile.ui -o MainWindow.py -x
+'-x' option appends the snippet below
+run without that option since the compiled windows are wrapper classes
 
 Results should be the same code that is generated in the designer with the addition of an "if main" executable.
 Example of "if main" generated

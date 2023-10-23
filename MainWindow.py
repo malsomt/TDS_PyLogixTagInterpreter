@@ -77,7 +77,7 @@ class Ui_MainWindow(object):
         self.gridLayout_3.addWidget(self.status_disp, 1, 1, 1, 7)
         self.gridLayout_2.addWidget(self.groupBox, 0, 0, 1, 1)
         self.group_components = QtWidgets.QGroupBox(self.centralwidget)
-        self.group_components.setEnabled(False)
+        self.group_components.setEnabled(True)
         self.group_components.setObjectName("group_components")
         self.gridLayout = QtWidgets.QGridLayout(self.group_components)
         self.gridLayout.setObjectName("gridLayout")
