@@ -3,8 +3,8 @@ import io
 import time
 
 from PyQt5.QtCore import QEvent, Qt
-from PyQt5.QtGui import QKeySequence, QBrush
-from PyQt5.QtWidgets import QApplication, QFileDialog
+from PyQt5.QtGui import QKeySequence, QBrush, QColor
+from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox, QDialog
 
 from ExportWindow import Ui_Export_Target
 from MainWindow import *
@@ -47,6 +47,9 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self._connected = flag
         self.toggleTargetSetup(not flag)
         self.group_components.setEnabled(flag)
+        # Override Export/ImportButtons for V1
+        self.btn_export.setEnabled(False)
+        self.btn_import.setEnabled(False)
 
     def action_export(self):
         global windowDict
@@ -175,15 +178,40 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.btn_msg_reload.clicked.connect(self.action_reload_msgs)
         self.btn_fault_send.clicked.connect(self.action_send_msgs)
         self.btn_msg_send.clicked.connect(self.action_send_faults)
+        self.chkbx_faultEdit.stateChanged.connect(self.action_faultEditCheckboxChanged)
+        self.chkbx_msgEdit.stateChanged.connect(self.action_msgEditCheckboxChanged)
+        self.chkbx_faultSort.stateChanged.connect(self.action_faultSortCheckboxChanged)
+        self.chkbx_msgSort.stateChanged.connect(self.action_msgSortCheckboxChanged)
+        self.tbl_faults.setColumnWidth(1, 700)
+        self.tbl_msgs.setColumnWidth(1, 700)
+
+    def action_faultSortCheckboxChanged(self):
+        if self.chkbx_faultSort.isChecked():
+            self.chkbx_faultEdit.setChecked(False)
+
+    def action_msgSortCheckboxChanged(self):
+        if self.chkbx_msgSort.isChecked():
+            self.chkbx_msgEdit.setChecked(False)
+
+    def action_faultEditCheckboxChanged(self):
+        if self.chkbx_faultEdit.isChecked():
+            self.chkbx_faultSort.setChecked(False)
+
+    def action_msgEditCheckboxChanged(self):
+        if self.chkbx_msgEdit.isChecked():
+            self.chkbx_msgSort.setChecked(False)
 
     def show(self):  # Extend Base Class show
         super(EditWindow, self).show()
         progName = self.windowTitle()
-        thread = threading.Thread(target=self.loadFaults, args=(progName,), daemon=True)
-        thread.start()
-        thread.join()
-        thread2 = threading.Thread(target=self.loadMessages, args=(progName,), daemon=True)
-        thread2.start()
+        self.loadFaults(progName)
+        self.loadMessages(progName)
+        # Removed from threading, not needed.
+        # thread = threading.Thread(target=self.loadFaults, args=(progName,), daemon=True)
+        # thread.start()
+        # thread.join()
+        # thread2 = threading.Thread(target=self.loadMessages, args=(progName,), daemon=True)
+        # thread2.start()
 
     def loadMessages(self, progName):
         arrayLength_msgs = 0
@@ -194,7 +222,11 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             if arrayLength_msgs != 0:
                 break
         if arrayLength_msgs == 0:
-            print('Killed Message Thread')
+            # print('Killed Message Thread')
+            mbx = QMessageBox(QMessageBox.Information, 'Operator Message Error',
+                              'Unable to find any "MessageArrayOperator" in this component program.',
+                              QMessageBox.Ok)
+            mbx.exec()
             return  # Kill thread
 
         results_msgs = plc.Read(f'Program:{progName}.MessageArrayOperator[0]', arrayLength_msgs)
@@ -216,10 +248,15 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             if tag.TagName == fullTag_fault:
                 arrayLength_fault = tag.Size
             if arrayLength_fault != 0:
-                break
+                break  # Kill Loop once found
                 # TODO: Placeholder, insert exception, update for messages
         if arrayLength_fault == 0:
-            print('Killed Fault Thread')
+            # print('Killed Fault Thread')
+            mbx = QMessageBox(QMessageBox.Information, 'Fault Message Error',
+                              'Unable to find any "MessageArrayFault" in this component program.',
+                              QMessageBox.Ok)
+            mbx.exec()
+
             return  # Kill thread
 
         results_fault = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength_fault)
@@ -354,10 +391,12 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         for row, tag in enumerate(self._faultTags):
             self.tbl_faults.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
             self.tbl_faults.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
+            self.tbl_faults.setItem(row, 2, QtWidgets.QTableWidgetItem(tag.AltText))
         self.tbl_faults.update()
         self.ignoreChangeEvent = False
-        # TODO: Change the lbl update to a function that adds date/time stamp
-        self.status_fault.setText(f'Loaded {self.tbl_faults.rowCount()} faults from PLC')
+        update = f'Loaded {self.tbl_faults.rowCount()} messages from PLC'
+        self.lcd_faults.display(self.arrayLen_faults)
+        self.status_fault.setText(self.status_update(update))
 
     def display_results_msgs(self):
         self.ignoreChangeEvent = True
@@ -366,9 +405,12 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         for row, tag in enumerate(self._messageTags):
             self.tbl_msgs.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
             self.tbl_msgs.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
+            self.tbl_msgs.setItem(row, 2, QtWidgets.QTableWidgetItem(tag.AltText))
         self.tbl_msgs.update()
         self.ignoreChangeEvent = False
-        self.status_msg.setText(f'Loaded {self.tbl_msgs.rowCount()} messages from PLC')
+        update = f'Loaded {self.tbl_msgs.rowCount()} messages from PLC'
+        self.lcd_msg.display(self.arrayLen_msgs)
+        self.status_msg.setText(self.status_update(update))
 
     def send_faults(self, changeList):
         global plc
@@ -379,10 +421,14 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         for index, fault in changeList:
             assert isinstance(fault, GeneralMessageExt)
             print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
-            self.status_fault.setText(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            update = f'Sending Program:{progName}.MessageArrayFault[{index}]'
+            self.status_fault.setText(self.status_update(update))
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
+
+        self.status_fault.setText(self.status_update(f'Sending {len(changeList)} tags...Complete'))
+        self.action_reload_faults()  # reload tags from PLC after they have been sent
 
     def send_msgs(self, changeList):
         global plc
@@ -392,10 +438,21 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             time.sleep(.01)
         for index, msg in changeList:
             assert isinstance(msg, GeneralMessageExt)
-            print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
+            update = f'Sending Program:{progName}.MessageArrayOperator[{index}]'
+            print(update)
+            self.status_msg.setText(self.status_update(update))
             plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
             plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
             plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
+
+        self.status_msg.setText(self.status_update(f'Sending {len(changeList)} tags...Complete'))
+        self.action_reload_msgs()  # reload tags from PLC after they have been sent
+
+    def status_update(self, text):
+        from datetime import datetime
+        dt = datetime.now()
+        out = f'{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute}:{dt.second}'
+        return out + ' ' + text
 
     def action_itemEdited_fault(self, item):
         assert isinstance(item, QtWidgets.QTableWidgetItem)
@@ -413,10 +470,19 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 self.faultTags[item.row()].newText = item.text()
             except Exception:
                 print("No Idea what happened...don't try whatever you did again.\nThat's One...")
-        # print(f'Flag has been set to {self.faultTags[item.row()].edits}')
+        elif item.column() == 2:  # Aligns with .AltText
+            try:
+                self.faultTags[item.row()].newAltText = item.text()
+            except Exception:
+                print("No Idea what happened...don't try whatever you did again.\nThat's One...")
         if self.faultTags[item.row()].edits:
-            # TODO: Look into the QBrush class and set up a background color
-            pass
+            item.setBackground(QColor(255, 255, 150))
+            # print(item.background().color().getRgb())
+        else:
+            if item.row() % 2 == 0:  # White to match alternating default color
+                item.setBackground(QColor(255, 255, 255))
+            else:  # Slight Gray to Match Alternating default color
+                item.setBackground(QColor(245, 245, 245))
 
     def action_itemEdited_msg(self, item):
         assert isinstance(item, QtWidgets.QTableWidgetItem)
@@ -434,10 +500,20 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 self.messageTags[item.row()].newText = item.text()
             except Exception:
                 print("No Idea what happened...don't try whatever you did again.\nThat's One...")
+        elif item.column() == 2:  # Aligns with .AltText
+            try:
+                self.messageTags[item.row()].newAltText = item.text()
+            except Exception:
+                print("No Idea what happened...don't try whatever you did again.\nThat's One...")
         # print(f'Flag has been set to {self.messageTags[item.row()].edits}')
         if self.messageTags[item.row()].edits:
-            # TODO: Look into the QBrush class and set up a background color
-            pass
+            item.setBackground(QColor(255, 255, 150))
+            # print(item.background().color().getRgb())
+        else:
+            if item.row() % 2 == 0:  # White to match alternating default color
+                item.setBackground(QColor(255, 255, 255))
+            else:  # Slight Gray to Match Alternating default color
+                item.setBackground(QColor(245, 245, 245))
 
     def action_reload_faults(self):
         self.status_fault.setText('Loading Tags from PLC...')
@@ -490,9 +566,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 changeList.append((index, fault))
 
         if len(changeList):
-            # TODO: Look to change to progressDialogBox
-            thread = threading.Thread(target=self.send_faults, args=(changeList,), daemon=True)
-            thread.start()
+            self.send_faults(changeList)  # Send the tags
 
     def action_send_msgs(self):
         """
@@ -519,7 +593,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 changeList.append((index, msg))
 
         if len(changeList):
-            #TODO Look to change into Progress DialogBox
+            # TODO Look to change into Progress DialogBox
             thread = threading.Thread(target=self.send_msgs, args=(changeList,), daemon=True)
             thread.start()
 
