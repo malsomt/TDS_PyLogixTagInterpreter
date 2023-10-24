@@ -18,7 +18,7 @@ class GeneralMessage:
             try:
                 self.Id = lu.unpack_DINT(byteArray[:3])
                 self.Text = lu.unpack_STRING(byteArray[4:90])
-                self.AltText = lu.unpack_STRING(byteArray[90:])
+                self.AltText = lu.unpack_STRING(byteArray[92:])
 
             except IndexError as e:
                 raise f'General Message could not parse the passed array. Check the size of the array: {e}'
@@ -73,7 +73,7 @@ class GeneralMessageExt(GeneralMessage):
 
     @property
     def newAltText(self):
-        return self._newText
+        return self._newAltText
 
     @newAltText.setter
     def newAltText(self, val):
