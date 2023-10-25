@@ -178,28 +178,16 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.btn_msg_reload.clicked.connect(self.action_reload_msgs)
         self.btn_fault_send.clicked.connect(self.action_send_msgs)
         self.btn_msg_send.clicked.connect(self.action_send_faults)
-        # self.chkbx_faultSortIn.stateChanged.connect(self.action_faultEditCheckboxChanged)
-        # self.chkbx_msgSortIn.stateChanged.connect(self.action_msgEditCheckboxChanged)
-        # self.chkbx_faultSortOut.stateChanged.connect(self.action_faultSortCheckboxChanged)
-        # self.chkbx_msgSortOut.stateChanged.connect(self.action_msgSortCheckboxChanged)
+        self.chkbx_faultSortIn.stateChanged.connect(self.action_faultSortInCheckboxChanged)
+        self.chkbx_msgSortIn.stateChanged.connect(self.action_msgSortInCheckboxChanged)
         self.tbl_faults.setColumnWidth(1, 700)
         self.tbl_msgs.setColumnWidth(1, 700)
 
-    # def action_faultSortCheckboxChanged(self):
-    #     if self.chkbx_faultSort.isChecked():
-    #         self.chkbx_faultEdit.setChecked(False)
-    #
-    # def action_msgSortCheckboxChanged(self):
-    #     if self.chkbx_msgSort.isChecked():
-    #         self.chkbx_msgEdit.setChecked(False)
-    #
-    # def action_faultEditCheckboxChanged(self):
-    #     if self.chkbx_faultEdit.isChecked():
-    #         self.chkbx_faultSort.setChecked(False)
-    #
-    # def action_msgEditCheckboxChanged(self):
-    #     if self.chkbx_msgEdit.isChecked():
-    #         self.chkbx_msgSort.setChecked(False)
+    def action_faultSortInCheckboxChanged(self):
+        self.action_reload_faults()
+
+    def action_msgSortInCheckboxChanged(self):
+        self.action_reload_msgs()
 
     def show(self):  # Extend Base Class show()
         super(EditWindow, self).show()
@@ -397,7 +385,9 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.ignoreChangeEvent = True
         self.tbl_faults.clearContents()
         self.tbl_faults.setRowCount(self.arrayLen_faults)
-        for row, tag in enumerate(self._faultTags):
+        if self.chkbx_faultSortIn.isChecked():
+            self.faultTags = self.sortTagList(self.faultTags)  # Sort the fault tags
+        for row, tag in enumerate(self.faultTags):
             self.tbl_faults.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
             self.tbl_faults.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
             self.tbl_faults.setItem(row, 2, QtWidgets.QTableWidgetItem(tag.AltText))
@@ -411,6 +401,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.ignoreChangeEvent = True
         self.tbl_msgs.clearContents()
         self.tbl_msgs.setRowCount(self.arrayLen_msgs)
+        if self.chkbx_msgSortIn.isChecked():
+            self.messageTags = self.sortTagList(self.messageTags)  # Sort the msg tags
         for row, tag in enumerate(self._messageTags):
             self.tbl_msgs.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
             self.tbl_msgs.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
@@ -538,73 +530,37 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
 
     def action_send_faults(self):
         """
-        Checks if selection box to send only the edits is checked.
-        If so...
-        Filter through the Tag list for the edit flag and add them to a list to be sent and addressed by the index.
-        If not...
-        Check if checkbox_sorted is checked
-        If so...
-        Copy out any tag that has any data into a temp list.
-        Sort that List by Id value
-        Fill the list out with blank tags on the backend so that .ID values of zero are always at the end of the list.
-        Package the changeList as a tuple of (index, GeneralMessage) to keep compatibility with the edits only send.
-        If not...Package ChangeList with all tags in the order they appear in the data table.
+        Action changed to send every tag every time.
+        Sending Edits only feature has been removed
         """
-        changeList = []
-        if self.chkbx_faultSortIn.isChecked():
-            for index, fault in enumerate(self.faultTags):
-                assert isinstance(fault, GeneralMessageExt)
-                if fault.edits:
-                    changeList.append((index, fault))
-        elif self.chkbx_faultSortOut.isChecked():
-            tempList = []
-            for fault in self.faultTags:
-                assert isinstance(fault, GeneralMessageExt)
-                # Check if Tag has any data
-                if fault.newId != 0 or fault.newText != '' or fault.newAltText != '':
-                    tempList.append(fault)
-            tempList.sort(key=lambda gm: gm.newId)  # sort list by newId property of the General Messages
-            fillLen = len(self.faultTags) - len(tempList)  # find how many tags are empty
-            for _ in range(fillLen):  # fill in list with blank tags
-                tempList.append(GeneralMessageExt())
-            for index, fault in enumerate(tempList):  # Keep compatibility with edit changes and package index w/ tag
-                changeList.append((index, fault))
-        else:
-            for index, fault in enumerate(
-                    self.faultTags):  # Keep compatibility with edit changes and package index w/ tag
-                changeList.append((index, fault))
-
+        changeList = self.sortTagList(self.faultTags)
         if len(changeList):
-            self.send_faults(changeList)  # Send the tags
+            # TODO Look to change into Progress DialogBox
+            thread = threading.Thread(target=self.send_faults, args=(changeList,), daemon=True)
+            thread.start()
 
     def action_send_msgs(self):
         """
         Replication of action_send_faults.
         """
-        changeList = []
-        if self.chkbx_msgSortIn.isChecked():
-            for index, msg in enumerate(self.messageTags):
-                assert isinstance(msg, GeneralMessageExt)
-                if msg.edits:
-                    changeList.append((index, msg))
-        else:
-            tempList = []
-            for msg in self.messageTags:
-                assert isinstance(msg, GeneralMessageExt)
-                # Check if Tag has any data
-                if msg.newId != 0 or msg.newText != '' or msg.newAltText != '':
-                    tempList.append(msg)
-            tempList.sort(key=lambda gm: gm.newId)  # sort list by newId property of the General Messages
-            fillLen = len(self.messageTags) - len(tempList)  # find how many tags are empty
-            for _ in range(fillLen):  # fill in list with blank tags
-                tempList.append(GeneralMessageExt())
-            for index, msg in enumerate(tempList):  # Keep compatibility with edit changes and package index w/ tag
-                changeList.append((index, msg))
-
+        changeList = self.sortTagList(self.messageTags)
         if len(changeList):
             # TODO Look to change into Progress DialogBox
             thread = threading.Thread(target=self.send_msgs, args=(changeList,), daemon=True)
             thread.start()
+
+    def sortTagList(self, tagList):
+        tempList = []
+        for msg in tagList:
+            assert isinstance(msg, GeneralMessageExt)
+            # Check if Tag has any data
+            if msg.newId != 0 or msg.newText != '' or msg.newAltText != '':
+                tempList.append(msg)
+        tempList.sort(key=lambda gm: gm.newId)  # sort list by newId property of the General Messages
+        fillLen = len(tagList) - len(tempList)  # find how many tags are empty
+        for _ in range(fillLen):  # fill in list with blank tags
+            tempList.append(GeneralMessageExt())
+        return tempList
 
     @property
     def faultTags(self):

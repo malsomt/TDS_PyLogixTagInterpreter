@@ -56,6 +56,6 @@ class Ui_Export_Target(object):
 
     def retranslateUi(self, Export_Target):
         _translate = QtCore.QCoreApplication.translate
-        Export_Target.setWindowTitle(_translate("Export_Target", "Dialog"))
+        Export_Target.setWindowTitle(_translate("Export_Target", "Select Export File Path"))
         self.pbn_FileExplorer.setText(_translate("Export_Target", "File Path..."))
         self.pbn_Export.setText(_translate("Export_Target", "Export Tags"))

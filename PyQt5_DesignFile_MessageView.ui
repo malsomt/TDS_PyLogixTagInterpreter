@@ -14,7 +14,7 @@
    <string>TabWidget</string>
   </property>
   <property name="currentIndex">
-   <number>1</number>
+   <number>0</number>
   </property>
   <widget class="QWidget" name="tab_faults">
    <attribute name="title">
@@ -31,6 +31,9 @@
         <widget class="QLineEdit" name="status_fault">
          <property name="enabled">
           <bool>false</bool>
+         </property>
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Displays action messages&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -49,7 +52,11 @@
         </widget>
        </item>
        <item>
-        <widget class="QLCDNumber" name="lcd_faults"/>
+        <widget class="QLCDNumber" name="lcd_faults">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Length of the MessageArrayFault Array.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
+        </widget>
        </item>
        <item>
         <widget class="Line" name="line_2">
@@ -61,20 +68,23 @@
        <item>
         <widget class="QCheckBox" name="chkbx_faultSortIn">
          <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If set, send command will only send the detected changes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Will display tags in a sorted format.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="toolTipDuration">
           <number>-1</number>
          </property>
          <property name="text">
-          <string>Edits Only</string>
+          <string>Sort Incoming</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QCheckBox" name="chkbx_faultSortOut">
          <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:9pt;&quot;&gt;Tags read from PLC will be sorted by &amp;quot;Id&amp;quot; in accending order.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Will write the tags into the PLC as sorted by ID.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
           <string>Sort Outgoing</string>
@@ -86,6 +96,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btn_msg_send">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sends tags to the PLC&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
          <property name="text">
           <string>Send</string>
          </property>
@@ -100,6 +113,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btn_fault_reload">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reload Tags from the PLC&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
          <property name="text">
           <string>Reload</string>
          </property>
@@ -212,6 +228,9 @@
          <property name="enabled">
           <bool>false</bool>
          </property>
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Displays action messages&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
         </widget>
        </item>
        <item>
@@ -230,6 +249,9 @@
        </item>
        <item>
         <widget class="QLCDNumber" name="lcd_msg">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Length of the MessageArrayFault Array.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
          <property name="intValue" stdset="0">
           <number>0</number>
          </property>
@@ -244,15 +266,21 @@
        </item>
        <item>
         <widget class="QCheckBox" name="chkbx_msgSortIn">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Will display tags in a sorted format.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
          <property name="text">
-          <string>Edits Only</string>
+          <string>Sort Incoming</string>
+         </property>
+         <property name="checked">
+          <bool>true</bool>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QCheckBox" name="chkbx_msgSortOut">
          <property name="toolTip">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tags read from PLC will be sorted by &amp;quot;Id&amp;quot; in accending order.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Will write the tags into the PLC as sorted by ID.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
           <string>Sort Outgoing</string>
@@ -264,6 +292,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btn_fault_send">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Sends tags to the PLC&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
          <property name="text">
           <string>Send</string>
          </property>
@@ -278,6 +309,9 @@
        </item>
        <item>
         <widget class="QPushButton" name="btn_msg_reload">
+         <property name="toolTip">
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Reload Tags from the PLC&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+         </property>
          <property name="text">
           <string>Reload</string>
          </property>
