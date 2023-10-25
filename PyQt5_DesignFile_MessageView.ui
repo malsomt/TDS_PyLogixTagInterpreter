@@ -14,7 +14,7 @@
    <string>TabWidget</string>
   </property>
   <property name="currentIndex">
-   <number>0</number>
+   <number>1</number>
   </property>
   <widget class="QWidget" name="tab_faults">
    <attribute name="title">
@@ -59,7 +59,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="chkbx_faultEdit">
+        <widget class="QCheckBox" name="chkbx_faultSortIn">
          <property name="toolTip">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;If set, send command will only send the detected changes.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
@@ -72,7 +72,7 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="chkbx_faultSort">
+        <widget class="QCheckBox" name="chkbx_faultSortOut">
          <property name="toolTip">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:9pt;&quot;&gt;Tags read from PLC will be sorted by &amp;quot;Id&amp;quot; in accending order.&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
@@ -243,14 +243,14 @@
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="chkbx_msgEdit">
+        <widget class="QCheckBox" name="chkbx_msgSortIn">
          <property name="text">
           <string>Edits Only</string>
          </property>
         </widget>
        </item>
        <item>
-        <widget class="QCheckBox" name="chkbx_msgSort">
+        <widget class="QCheckBox" name="chkbx_msgSortOut">
          <property name="toolTip">
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Tags read from PLC will be sorted by &amp;quot;Id&amp;quot; in accending order.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>

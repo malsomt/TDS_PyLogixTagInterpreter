@@ -178,30 +178,30 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.btn_msg_reload.clicked.connect(self.action_reload_msgs)
         self.btn_fault_send.clicked.connect(self.action_send_msgs)
         self.btn_msg_send.clicked.connect(self.action_send_faults)
-        self.chkbx_faultEdit.stateChanged.connect(self.action_faultEditCheckboxChanged)
-        self.chkbx_msgEdit.stateChanged.connect(self.action_msgEditCheckboxChanged)
-        self.chkbx_faultSort.stateChanged.connect(self.action_faultSortCheckboxChanged)
-        self.chkbx_msgSort.stateChanged.connect(self.action_msgSortCheckboxChanged)
+        # self.chkbx_faultSortIn.stateChanged.connect(self.action_faultEditCheckboxChanged)
+        # self.chkbx_msgSortIn.stateChanged.connect(self.action_msgEditCheckboxChanged)
+        # self.chkbx_faultSortOut.stateChanged.connect(self.action_faultSortCheckboxChanged)
+        # self.chkbx_msgSortOut.stateChanged.connect(self.action_msgSortCheckboxChanged)
         self.tbl_faults.setColumnWidth(1, 700)
         self.tbl_msgs.setColumnWidth(1, 700)
 
-    def action_faultSortCheckboxChanged(self):
-        if self.chkbx_faultSort.isChecked():
-            self.chkbx_faultEdit.setChecked(False)
+    # def action_faultSortCheckboxChanged(self):
+    #     if self.chkbx_faultSort.isChecked():
+    #         self.chkbx_faultEdit.setChecked(False)
+    #
+    # def action_msgSortCheckboxChanged(self):
+    #     if self.chkbx_msgSort.isChecked():
+    #         self.chkbx_msgEdit.setChecked(False)
+    #
+    # def action_faultEditCheckboxChanged(self):
+    #     if self.chkbx_faultEdit.isChecked():
+    #         self.chkbx_faultSort.setChecked(False)
+    #
+    # def action_msgEditCheckboxChanged(self):
+    #     if self.chkbx_msgEdit.isChecked():
+    #         self.chkbx_msgSort.setChecked(False)
 
-    def action_msgSortCheckboxChanged(self):
-        if self.chkbx_msgSort.isChecked():
-            self.chkbx_msgEdit.setChecked(False)
-
-    def action_faultEditCheckboxChanged(self):
-        if self.chkbx_faultEdit.isChecked():
-            self.chkbx_faultSort.setChecked(False)
-
-    def action_msgEditCheckboxChanged(self):
-        if self.chkbx_msgEdit.isChecked():
-            self.chkbx_msgSort.setChecked(False)
-
-    def show(self):  # Extend Base Class show
+    def show(self):  # Extend Base Class show()
         super(EditWindow, self).show()
         progName = self.windowTitle()
         self.loadFaults(progName)
@@ -212,30 +212,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         # thread.join()
         # thread2 = threading.Thread(target=self.loadMessages, args=(progName,), daemon=True)
         # thread2.start()
-
-    def loadMessages(self, progName):
-        arrayLength_msgs = 0
-        fullTag_msgs = f'Program:{progName}.MessageArrayOperator'
-        for index, tag in enumerate(plc.TagList):
-            if tag.TagName == fullTag_msgs:
-                arrayLength_msgs = tag.Size
-            if arrayLength_msgs != 0:
-                break
-        if arrayLength_msgs == 0:
-            # print('Killed Message Thread')
-            mbx = QMessageBox(QMessageBox.Information, 'Operator Message Error',
-                              'Unable to find any "MessageArrayOperator" in this component program.',
-                              QMessageBox.Ok)
-            mbx.exec()
-            return  # Kill thread
-
-        results_msgs = plc.Read(f'Program:{progName}.MessageArrayOperator[0]', arrayLength_msgs)
-        if results_msgs.Status == 'Success':
-            self.arrayLen_msgs = arrayLength_msgs
-            self.results_msgs = results_msgs  # setter will trigger parsing function
-            self.disableTable = False
-        else:
-            self.disableTable = True
 
     def loadFaults(self, progName):
         global windowDict
@@ -262,9 +238,10 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             if results_fault.Status == 'Success':
                 retry = False  # kill while loop retries
                 self.arrayLen_faults = arrayLength_fault  # ensure to set the length before the results_fault
-                # TODO: update new results property
-                # TODO: Change parsing from the setter function to a call to a function to maintain workflow
-                self.results_fault = results_fault  # setter will trigger parsing function
+                self.results_fault = results_fault
+                # attempt to parse out results
+                if self.results_fault is not None:
+                    self.parse_results('faults')
             else:
                 # Occasionally a PLC read will fail due to a connection lost error.
                 # Simple re-run has solved the issue, this just does this automatically
@@ -272,6 +249,33 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
 
             if attempts <= 0:
                 retry = False  # kill retry attempts
+
+    def loadMessages(self, progName):
+        arrayLength_msgs = 0
+        fullTag_msgs = f'Program:{progName}.MessageArrayOperator'
+        for index, tag in enumerate(plc.TagList):
+            if tag.TagName == fullTag_msgs:
+                arrayLength_msgs = tag.Size
+            if arrayLength_msgs != 0:
+                break
+        if arrayLength_msgs == 0:
+            # print('Killed Message Thread')
+            mbx = QMessageBox(QMessageBox.Information, 'Operator Message Error',
+                              'Unable to find any "MessageArrayOperator" in this component program.',
+                              QMessageBox.Ok)
+            mbx.exec()
+            return  # Kill thread
+
+        results_msgs = plc.Read(f'Program:{progName}.MessageArrayOperator[0]', arrayLength_msgs)
+        if results_msgs.Status == 'Success':
+            self.arrayLen_msgs = arrayLength_msgs
+            self.results_msgs = results_msgs
+            # attempt to parse out results
+            if self.results_msgs is not None:
+                self.parse_results('messages')
+            self.disableTable = False
+        else:
+            self.disableTable = True
 
     def eventFilter(self, source, event):
         modifiers = QApplication.keyboardModifiers()
@@ -547,12 +551,12 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         If not...Package ChangeList with all tags in the order they appear in the data table.
         """
         changeList = []
-        if self.chkbx_faultEdit.isChecked():
+        if self.chkbx_faultSortIn.isChecked():
             for index, fault in enumerate(self.faultTags):
                 assert isinstance(fault, GeneralMessageExt)
                 if fault.edits:
                     changeList.append((index, fault))
-        elif self.chkbx_faultSort.isChecked():
+        elif self.chkbx_faultSortOut.isChecked():
             tempList = []
             for fault in self.faultTags:
                 assert isinstance(fault, GeneralMessageExt)
@@ -578,7 +582,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         Replication of action_send_faults.
         """
         changeList = []
-        if self.chkbx_msgEdit.isChecked():
+        if self.chkbx_msgSortIn.isChecked():
             for index, msg in enumerate(self.messageTags):
                 assert isinstance(msg, GeneralMessageExt)
                 if msg.edits:
@@ -625,9 +629,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     @results_fault.setter
     def results_fault(self, result):
         self._results_fault = result
-        # attempt to parse out results
-        if result is not None:
-            self.parse_results('faults')
 
     @property
     def results_msgs(self):
@@ -636,9 +637,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     @results_msgs.setter
     def results_msgs(self, result):
         self._results_msgs = result
-        # attempt to parse out results
-        if result is not None:
-            self.parse_results('messages')
 
     @property
     def disableTable(self):
@@ -691,20 +689,6 @@ class ExportWindow(Ui_Export_Target, QtWidgets.QDialog):
             self.pbn_Export.setEnabled(True)
         else:
             self.pbn_Export.setEnabled(False)
-
-
-# class ExportMessage(QtWidgets.QMessageBox):
-#     def __init__(self, filePath):
-#         super(ExportMessage, self).__init__()
-#         self.filePath = filePath
-#         self.setWindowTitle('PLC to json')
-#
-#     def exec(self):
-#         super(self.exec())
-#
-#     def plc_to_json(self):
-#         time.sleep(1)
-#         self.done(0)
 
 
 if __name__ == "__main__":
