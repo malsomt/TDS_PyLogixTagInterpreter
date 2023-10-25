@@ -8,16 +8,20 @@ program.
 Windows are layed out using PYQT5 designer and compiled into python classes.
 main.py is the entry point
 
+pyinstaller command to compile to a single file runtime
+pyinstaller main.py --noconsole --onefile --name TDS_MessageTool --distpath ./Release
+Ensure to run inside the Virtual Environment or pyinstaller will be unable to find the supporting libs.
+
 Readme File here is for my personal notes until a later date.
 Ignore everything below this...
 
 
 
 TLM - 10-23-2023
-CHeck Github Issues for TODO list
+Check Github Issues for TODO list
 
 TLM - 10-10-2023
-Run the command below to compile the design file into executable python code that will generate a window on runtime.
+Run the command below to compile the pyQT5 design file into executable python code that will generate a window on runtime.
 
 pyuic5 PyQt5_DesignFile.ui -o MainWindow.py -x
 '-x' option appends the snippet below
