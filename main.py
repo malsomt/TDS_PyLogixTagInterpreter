@@ -2,15 +2,15 @@ import csv
 import io
 import time
 
-from PyQt5.QtCore import QEvent, Qt
-from PyQt5.QtGui import QKeySequence, QBrush, QColor
-from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox, QDialog
+from PyQt5.QtCore import QEvent
+from PyQt5.QtGui import QKeySequence, QColor
+from PyQt5.QtWidgets import QApplication, QMessageBox
 
-from ExportWindow import Ui_Export_Target
 from MainWindow import *
 from MessageWindow import *
 import threading
 from definitions import *
+from excel_interface import ExportWindow
 
 global thread1
 global thread2
@@ -603,48 +603,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self._disable_Table = flag
         self.tbl_faults.setEnabled = not flag
         self.tbl_msgs.setEnabled = not flag
-
-
-class ExportWindow(Ui_Export_Target, QtWidgets.QDialog):
-    def __init__(self):
-        super(ExportWindow, self).__init__()
-        self.setupUi(self)
-        self.setWindowTitle('Set Export Target Path')
-        self.pbn_Export.clicked.connect(self.action_export)
-        self.pbn_FileExplorer.clicked.connect(self.action_fileDialog)
-        self._filePath = None
-        self.filePath = ''
-
-    def action_export(self):
-        # Create a custom MessageBox that locks the main thread
-        # Export Message class has extended plc to json function that calls itself on execution
-        # will return with a success of failure
-        global plc
-        progList = plc.GetProgramsList()
-        msg = QtWidgets.QProgressDialog("Copying files...", "Abort Copy", 0, len(progList), self)
-        msg.setWindowModality(Qt.WindowModal)
-
-    def action_fileDialog(self):
-        options = QFileDialog.Options()
-        # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
-        fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "",
-                                                  "Json Files (*.json)", options=options)
-        self.filePath = fileName  # Set filepath to the line edit box
-
-    @property
-    def filePath(self):
-        return self._filePath
-
-    @filePath.setter
-    def filePath(self, fp):
-        # Check for empty string, insert more params later if necessary
-        # Enable the Export pushbutton if valid and disable if not.
-        if fp != '':
-            self._filePath = fp
-            self.status_filePath.setText(self._filePath)
-            self.pbn_Export.setEnabled(True)
-        else:
-            self.pbn_Export.setEnabled(False)
 
 
 if __name__ == "__main__":
