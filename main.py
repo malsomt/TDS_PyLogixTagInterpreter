@@ -238,7 +238,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             self.disableTable = True
 
     def loadFaults(self, progName):
-        # TODO: Handle the returns and search result errors better
         global windowDict
         global plc
         arrayLength_fault = 0
@@ -249,24 +248,30 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 arrayLength_fault = tag.Size
             if arrayLength_fault != 0:
                 break  # Kill Loop once found
-                # TODO: Placeholder, insert exception, update for messages
         if arrayLength_fault == 0:
             # print('Killed Fault Thread')
             mbx = QMessageBox(QMessageBox.Information, 'Fault Message Error',
                               'Unable to find any "MessageArrayFault" in this component program.',
                               QMessageBox.Ok)
             mbx.exec()
+            return  # Exit Function
+        retry = True  # flag used to loop in event of failed PLC read
+        attempts = 2
+        while retry:
+            results_fault = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength_fault)
+            if results_fault.Status == 'Success':
+                retry = False  # kill while loop retries
+                self.arrayLen_faults = arrayLength_fault  # ensure to set the length before the results_fault
+                # TODO: update new results property
+                # TODO: Change parsing from the setter function to a call to a function to maintain workflow
+                self.results_fault = results_fault  # setter will trigger parsing function
+            else:
+                # Occasionally a PLC read will fail due to a connection lost error.
+                # Simple re-run has solved the issue, this just does this automatically
+                attempts -= 1  # remove attempt token
 
-            return  # Kill thread
-
-        results_fault = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength_fault)
-        if results_fault.Status == 'Success':
-            self.arrayLen_faults = arrayLength_fault  # ensure to set the length before the results_fault
-            # TODO: update new results property
-            self.results_fault = results_fault  # setter will trigger parsing function
-            self.disableTable = False
-        else:
-            self.disableTable = True
+            if attempts <= 0:
+                retry = False  # kill retry attempts
 
     def eventFilter(self, source, event):
         modifiers = QApplication.keyboardModifiers()
