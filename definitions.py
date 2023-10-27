@@ -5,16 +5,22 @@ import pylogix
 # Use this space to define UDTs in the controller you need to parse.
 # Since UDT datatypes are sent as byte arrays from the controller, custom parsing into the base types is necessary.
 
-def parse_GeneralMessageArray(byteArray, length):
+def parse_GeneralMessageArray(byteArray, arraylength):
+    """
+    :type
+    :param byteArray:
+    :param arraylength:
+    :return:
+    """
     """Parse the result byte stream."""
     # General message UDT is defined as 180bytes from the plc
     # Break the result into 180 byte chunks and pass them to a General Message object.
     # GeneralMessage class will parse the block into its individual elements.
     messageTags = []
     try:
-        for i in range(length):
-            arr_lwr = i * 180
-            arr_upr = arr_lwr + 180
+        for i in range(arraylength):
+            arr_lwr = i * GeneralMessage.ByteLength
+            arr_upr = arr_lwr + GeneralMessage.ByteLength
             messageTags.append(GeneralMessageExt(byteArray[arr_lwr:arr_upr]))
     except IndexError:
         raise IndexError('Check byte array input to the General Message parser.')
@@ -23,10 +29,16 @@ def parse_GeneralMessageArray(byteArray, length):
 
 # class matched UDT in TDS template
 class GeneralMessage:
-    # UDT defined as 180 bytes
-    # GeneralMessage.Id : DINT
-    # GeneralMessage.Text : STRING
-    # GeneralMessage.AltText : STRING
+    """
+    Class intended to match UDT in PLC
+    UDT defined as 180 bytes
+
+    GeneralMessage.Id : DINT \n
+    GeneralMessage.Text : STRING \n
+    GeneralMessage.AltText : STRING \n
+    """
+    ByteLength = 180
+
     def __init__(self, byteArray):
         if byteArray is not None:
             assert isinstance(byteArray, bytes) and len(byteArray)
