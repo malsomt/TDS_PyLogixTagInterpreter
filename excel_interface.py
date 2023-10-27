@@ -4,6 +4,8 @@ from PyQt5.QtWidgets import QFileDialog
 import ExportWindow
 import xlsxwriter
 
+import messageFunctions
+
 
 class ExcelInterface:
     """
@@ -33,12 +35,15 @@ class ExcelInterface:
         sheetNames = self.findPrograms()
         # create sheet names
         for sheetName in sheetNames:
-            self.workbook.add_worksheet(sheetName)
+            progName = str.replace(sheetName, 'Program:', '')
+            self.workbook.add_worksheet(progName)
+            faultTags = messageFunctions.loadFaults(self.plc, progName)
+            messageTags = messageFunctions.loadMessages(self.plc, progName)
+            # TODO - Continue building out excel spreadsheet
 
     def findPrograms(self):
         """
         Returns a list of Programs Names that contain valid message fault and operator tags.
-        List of Program Names have 'Program:' stripped from the front.
         :return: List[str]
         """
         programList = []
@@ -68,8 +73,6 @@ class ExcelInterface:
         if len(programList) != len(filteredProgList):
             print(f'Programs List was reduced from {len(programList)} to {len(filteredProgList)}')
         # Filter the 'Program:' from the front of the names to use as sheet names
-        for index, prog in enumerate(filteredProgList):
-            filteredProgList[index] = str.replace(prog, 'Program:', '', 1)
         print(filteredProgList)
         return filteredProgList
 
