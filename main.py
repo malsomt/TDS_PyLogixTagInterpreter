@@ -4,16 +4,15 @@ import time
 
 from PyQt5.QtCore import QEvent
 from PyQt5.QtGui import QKeySequence, QColor
-from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtWidgets import QApplication, QMessageBox, QFileDialog
 
 from MainWindow import *
 from MessageWindow import *
 import threading
 from definitions import *
-from excel_interface import ExportWindow
+from excel_interface import ExcelInterface
+from messageFunctions import loadMessages, loadFaults, sortTagList
 
-global thread1
-global thread2
 global windowDict
 global plc
 
@@ -48,14 +47,18 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.toggleTargetSetup(not flag)
         self.group_components.setEnabled(flag)
         # Override Export/ImportButtons for V1
-        self.btn_export.setEnabled(False)
+        self.btn_export.setEnabled(True)
         self.btn_import.setEnabled(False)
 
     def action_export(self):
         global windowDict
-        window = ExportWindow()
-        windowDict['ExportDialog'] = window
-        windowDict['ExportDialog'].exec()
+        global plc
+        options = QFileDialog.Options()
+        # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
+        filePath, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "",
+                                                  "Excel Files (*.xlxs)", options=options)
+        file = ExcelInterface(plc=plc, filepath=filePath)
+        file.Export()
 
     def action_connectToPLC(self):
         self.status_disp.setText('Attempting to connect...')
@@ -163,14 +166,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         super(EditWindow, self).__init__()
         self.setupUi(self)
         self.ignoreChangeEvent = False
-        self.arrayLen_faults = 0
-        self.arrayLen_msgs = 0
         self._faultTags = []
         self._messageTags = []
-        self._results_fault = None
-        self._results_msgs = None
-        self._disable_Table = None
-        self.disable_Table = True
         self.tbl_faults.itemChanged.connect(self.action_itemEdited_fault)
         self.tbl_msgs.itemChanged.connect(self.action_itemEdited_msg)
         self.installEventFilter(self)
@@ -190,80 +187,13 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.action_reload_msgs()
 
     def show(self):  # Extend Base Class show()
+        global plc
         super(EditWindow, self).show()
         progName = self.windowTitle()
-        self.loadFaults(progName)
-        self.loadMessages(progName)
-        # Removed from threading, not needed.
-        # thread = threading.Thread(target=self.loadFaults, args=(progName,), daemon=True)
-        # thread.start()
-        # thread.join()
-        # thread2 = threading.Thread(target=self.loadMessages, args=(progName,), daemon=True)
-        # thread2.start()
-
-    def loadFaults(self, progName):
-        global windowDict
-        global plc
-        arrayLength_fault = 0
-        fullTag_fault = f'Program:{progName}.MessageArrayFault'
-        # Get the length of the arrays from the tag info in the plc object
-        for index, tag in enumerate(plc.TagList):
-            if tag.TagName == fullTag_fault:
-                arrayLength_fault = tag.Size
-            if arrayLength_fault != 0:
-                break  # Kill Loop once found
-        if arrayLength_fault == 0:
-            # print('Killed Fault Thread')
-            mbx = QMessageBox(QMessageBox.Information, 'Fault Message Error',
-                              'Unable to find any "MessageArrayFault" in this component program.',
-                              QMessageBox.Ok)
-            mbx.exec()
-            return  # Exit Function
-        retry = True  # flag used to loop in event of failed PLC read
-        attempts = 2
-        while retry:
-            results_fault = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength_fault)
-            if results_fault.Status == 'Success':
-                retry = False  # kill while loop retries
-                self.arrayLen_faults = arrayLength_fault  # ensure to set the length before the results_fault
-                self.results_fault = results_fault
-                # attempt to parse out results
-                if self.results_fault is not None:
-                    self.parse_results('faults')
-            else:
-                # Occasionally a PLC read will fail due to a connection lost error.
-                # Simple re-run has solved the issue, this just does this automatically
-                attempts -= 1  # remove attempt token
-
-            if attempts <= 0:
-                retry = False  # kill retry attempts
-
-    def loadMessages(self, progName):
-        arrayLength_msgs = 0
-        fullTag_msgs = f'Program:{progName}.MessageArrayOperator'
-        for index, tag in enumerate(plc.TagList):
-            if tag.TagName == fullTag_msgs:
-                arrayLength_msgs = tag.Size
-            if arrayLength_msgs != 0:
-                break
-        if arrayLength_msgs == 0:
-            # print('Killed Message Thread')
-            mbx = QMessageBox(QMessageBox.Information, 'Operator Message Error',
-                              'Unable to find any "MessageArrayOperator" in this component program.',
-                              QMessageBox.Ok)
-            mbx.exec()
-            return  # Kill thread
-
-        results_msgs = plc.Read(f'Program:{progName}.MessageArrayOperator[0]', arrayLength_msgs)
-        if results_msgs.Status == 'Success':
-            self.arrayLen_msgs = arrayLength_msgs
-            self.results_msgs = results_msgs
-            # attempt to parse out results
-            if self.results_msgs is not None:
-                self.parse_results('messages')
-            self.disableTable = False
-        else:
-            self.disableTable = True
+        self.faultTags = loadFaults(plc, progName)
+        self.messageTags = loadMessages(plc, progName)
+        self.display_results_fault()
+        self.display_results_msgs()
 
     def eventFilter(self, source, event):
         modifiers = QApplication.keyboardModifiers()
@@ -361,32 +291,12 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             # Ignore Index Error , re-create by selecting more cells than clipboard has available.
             pass
 
-    def parse_results(self, type):
-        """Parse the result byte stream."""
-        # General message UDT is defined as 180bytes from the plc
-        # Break the result into 180 byte chunks and pass them to a General Message object.
-        # GeneralMessage class will parse the block into its individual elements.
-        if type == 'faults':
-            self._faultTags = []
-            for i in range(self.arrayLen_faults):
-                arr_lwr = i * 180
-                arr_upr = arr_lwr + 180
-                self._faultTags.append(GeneralMessageExt(self._results_fault.Value[arr_lwr:arr_upr]))
-        elif type == 'messages':
-            self._messageTags = []
-            for i in range(self.arrayLen_msgs):
-                arr_lwr = i * 180
-                arr_upr = arr_lwr + 180
-                self._messageTags.append(GeneralMessageExt(self._results_msgs.Value[arr_lwr:arr_upr]))
-        self.display_results_fault()
-        self.display_results_msgs()
-
     def display_results_fault(self):
         self.ignoreChangeEvent = True
         self.tbl_faults.clearContents()
-        self.tbl_faults.setRowCount(self.arrayLen_faults)
+        self.tbl_faults.setRowCount(len(self.faultTags))
         if self.chkbx_faultSortIn.isChecked():
-            self.faultTags = self.sortTagList(self.faultTags)  # Sort the fault tags
+            self.faultTags = sortTagList(self.faultTags)  # Sort the fault tags
         for row, tag in enumerate(self.faultTags):
             self.tbl_faults.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
             self.tbl_faults.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
@@ -394,15 +304,15 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.tbl_faults.update()
         self.ignoreChangeEvent = False
         update = f'Loaded {self.tbl_faults.rowCount()} messages from PLC'
-        self.lcd_faults.display(self.arrayLen_faults)
-        self.status_fault.setText(self.status_update(update))
+        self.lcd_faults.display(len(self.faultTags))
+        self.status_fault.setText(self.prepend_DateTime(update))
 
     def display_results_msgs(self):
         self.ignoreChangeEvent = True
         self.tbl_msgs.clearContents()
-        self.tbl_msgs.setRowCount(self.arrayLen_msgs)
+        self.tbl_msgs.setRowCount(len(self.messageTags))
         if self.chkbx_msgSortIn.isChecked():
-            self.messageTags = self.sortTagList(self.messageTags)  # Sort the msg tags
+            self.messageTags = sortTagList(self.messageTags)  # Sort the msg tags
         for row, tag in enumerate(self._messageTags):
             self.tbl_msgs.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
             self.tbl_msgs.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
@@ -410,8 +320,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.tbl_msgs.update()
         self.ignoreChangeEvent = False
         update = f'Loaded {self.tbl_msgs.rowCount()} messages from PLC'
-        self.lcd_msg.display(self.arrayLen_msgs)
-        self.status_msg.setText(self.status_update(update))
+        self.lcd_msg.display(len(self.messageTags))
+        self.status_msg.setText(self.prepend_DateTime(update))
 
     def send_faults(self, changeList):
         global plc
@@ -419,16 +329,17 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         progName = self.windowTitle()
         while plc.busy:  # Simple wait if plc object is busy.
             time.sleep(.01)
-        for index, fault in changeList:
+
+        for index, fault in enumerate(changeList):
             assert isinstance(fault, GeneralMessageExt)
             print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
             update = f'Sending Program:{progName}.MessageArrayFault[{index}]'
-            self.status_fault.setText(self.status_update(update))
+            self.status_fault.setText(self.prepend_DateTime(update))
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
             plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
 
-        self.status_fault.setText(self.status_update(f'Sending {len(changeList)} tags...Complete'))
+        self.status_fault.setText(self.prepend_DateTime(f'Sending {len(changeList)} tags...Complete'))
         self.action_reload_faults()  # reload tags from PLC after they have been sent
 
     def send_msgs(self, changeList):
@@ -437,23 +348,17 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         progName = self.windowTitle()
         while plc.busy:  # Simple wait if plc object is busy.
             time.sleep(.01)
-        for index, msg in changeList:
+        for index, msg in enumerate(changeList):
             assert isinstance(msg, GeneralMessageExt)
             update = f'Sending Program:{progName}.MessageArrayOperator[{index}]'
             print(update)
-            self.status_msg.setText(self.status_update(update))
+            self.status_msg.setText(self.prepend_DateTime(update))
             plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
             plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
             plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
 
-        self.status_msg.setText(self.status_update(f'Sending {len(changeList)} tags...Complete'))
+        self.status_msg.setText(self.prepend_DateTime(f'Sending {len(changeList)} tags...Complete'))
         self.action_reload_msgs()  # reload tags from PLC after they have been sent
-
-    def status_update(self, text):
-        from datetime import datetime
-        dt = datetime.now()
-        out = f'{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute}:{dt.second}'
-        return out + ' ' + text
 
     def action_itemEdited_fault(self, item):
         assert isinstance(item, QtWidgets.QTableWidgetItem)
@@ -467,15 +372,11 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 item.setText(str(self.faultTags[item.row()].newId))
                 print(f'Attempted to set Id to non-INTEGER value.')
         elif item.column() == 1:  # Aligns with .Text
-            try:
-                self.faultTags[item.row()].newText = item.text()
-            except Exception:
-                print("No Idea what happened...don't try whatever you did again.\nThat's One...")
+            self.faultTags[item.row()].newText = item.text()
+
         elif item.column() == 2:  # Aligns with .AltText
-            try:
-                self.faultTags[item.row()].newAltText = item.text()
-            except Exception:
-                print("No Idea what happened...don't try whatever you did again.\nThat's One...")
+            self.faultTags[item.row()].newAltText = item.text()
+
         if self.faultTags[item.row()].edits:
             item.setBackground(QColor(255, 255, 150))
             # print(item.background().color().getRgb())
@@ -497,16 +398,11 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 item.setText(str(self.messageTags[item.row()].newId))
                 print(f'Attempted to set Id to non-INTEGER value.')
         elif item.column() == 1:  # Aligns with .Text
-            try:
-                self.messageTags[item.row()].newText = item.text()
-            except Exception:
-                print("No Idea what happened...don't try whatever you did again.\nThat's One...")
+            self.messageTags[item.row()].newText = item.text()
+
         elif item.column() == 2:  # Aligns with .AltText
-            try:
-                self.messageTags[item.row()].newAltText = item.text()
-            except Exception:
-                print("No Idea what happened...don't try whatever you did again.\nThat's One...")
-        # print(f'Flag has been set to {self.messageTags[item.row()].edits}')
+            self.messageTags[item.row()].newAltText = item.text()
+
         if self.messageTags[item.row()].edits:
             item.setBackground(QColor(255, 255, 150))
             # print(item.background().color().getRgb())
@@ -516,24 +412,35 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             else:  # Slight Gray to Match Alternating default color
                 item.setBackground(QColor(245, 245, 245))
 
+    def prepend_DateTime(self, text):
+        from datetime import datetime
+        dt = datetime.now()
+        out = f'{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute}:{dt.second}'
+        return out + ' ' + text
+
     def action_reload_faults(self):
+        global plc
         self.status_fault.setText('Loading Tags from PLC...')
         progName = self.windowTitle()
-        thread = threading.Thread(target=self.loadFaults, args=(progName,), daemon=True)
-        thread.start()
+        self.faultTags = loadFaults(plc, progName)
+        self.display_results_fault()
 
     def action_reload_msgs(self):
+        global plc
         self.status_msg.setText('Loading Tags from PLC...')
         progName = self.windowTitle()
-        thread = threading.Thread(target=self.loadMessages, args=(progName,), daemon=True)
-        thread.start()
+        self.messageTags = loadMessages(plc, progName)
 
     def action_send_faults(self):
         """
         Action changed to send every tag every time.
         Sending Edits only feature has been removed
         """
-        changeList = self.sortTagList(self.faultTags)
+        if self.chkbx_faultSortOut.isChecked():
+            changeList = sortTagList(self.faultTags)
+        else:
+            changeList = self.faultTags
+
         if len(changeList):
             # TODO Look to change into Progress DialogBox
             thread = threading.Thread(target=self.send_faults, args=(changeList,), daemon=True)
@@ -543,24 +450,15 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         """
         Replication of action_send_faults.
         """
-        changeList = self.sortTagList(self.messageTags)
+        if self.chkbx_msgSortOut.isChecked():
+            changeList = sortTagList(self.messageTags)
+        else:
+            changeList = self.messageTags
+
         if len(changeList):
             # TODO Look to change into Progress DialogBox
             thread = threading.Thread(target=self.send_msgs, args=(changeList,), daemon=True)
             thread.start()
-
-    def sortTagList(self, tagList):
-        tempList = []
-        for msg in tagList:
-            assert isinstance(msg, GeneralMessageExt)
-            # Check if Tag has any data
-            if msg.newId != 0 or msg.newText != '' or msg.newAltText != '':
-                tempList.append(msg)
-        tempList.sort(key=lambda gm: gm.newId)  # sort list by newId property of the General Messages
-        fillLen = len(tagList) - len(tempList)  # find how many tags are empty
-        for _ in range(fillLen):  # fill in list with blank tags
-            tempList.append(GeneralMessageExt())
-        return tempList
 
     @property
     def faultTags(self):
@@ -577,32 +475,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     @messageTags.setter
     def messageTags(self, tags):
         self._messageTags = tags
-
-    @property
-    def results_fault(self):
-        return self._results_fault
-
-    @results_fault.setter
-    def results_fault(self, result):
-        self._results_fault = result
-
-    @property
-    def results_msgs(self):
-        return self._results_msgs
-
-    @results_msgs.setter
-    def results_msgs(self, result):
-        self._results_msgs = result
-
-    @property
-    def disableTable(self):
-        return self._disable_Table
-
-    @disableTable.setter
-    def disableTable(self, flag):
-        self._disable_Table = flag
-        self.tbl_faults.setEnabled = not flag
-        self.tbl_msgs.setEnabled = not flag
 
 
 if __name__ == "__main__":
