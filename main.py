@@ -56,7 +56,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         options = QFileDialog.Options()
         # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
         filePath, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "",
-                                                  "Excel Files (*.xlxs)", options=options)
+                                                  "Excel Files (*.xlsx)", options=options)
         file = ExcelInterface(plc=plc, filepath=filePath)
         file.Export()
 

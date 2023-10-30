@@ -1,8 +1,9 @@
 import pylogix
 from PyQt5 import QtWidgets, Qt
-from PyQt5.QtWidgets import QFileDialog
+from PyQt5.QtWidgets import QMessageBox
 import ExportWindow
 import xlsxwriter
+from xlsxwriter import exceptions
 
 import messageFunctions
 
@@ -30,16 +31,67 @@ class ExcelInterface:
         self._filePath = path
 
     def Export(self):
-        # Create Workbook
-        self.workbook = xlsxwriter.Workbook(self._filePath)
-        sheetNames = self.findPrograms()
-        # create sheet names
-        for sheetName in sheetNames:
-            progName = str.replace(sheetName, 'Program:', '')
-            self.workbook.add_worksheet(progName)
-            faultTags = messageFunctions.loadFaults(self.plc, progName)
-            messageTags = messageFunctions.loadMessages(self.plc, progName)
-            # TODO - Continue building out excel spreadsheet
+        try:
+            # Create Workbook
+            self.workbook = xlsxwriter.Workbook(self._filePath)
+            sheetNames = self.findPrograms()
+            # create sheet names
+            for sheetName in sheetNames:  # Loop Programs as sheets
+                progName = str.replace(sheetName, 'Program:', '')
+                worksheet = self.workbook.add_worksheet(progName)
+                bold = self.workbook.add_format({'bold': True})  # create bold formatting
+                wrap = self.workbook.add_format({'text_wrap': True})
+                faultTags = messageFunctions.loadFaults(self.plc, progName)
+                messageTags = messageFunctions.loadMessages(self.plc, progName)
+                # set column width
+                worksheet.set_column(0, 0, 10)  # Format ID Columns
+                worksheet.set_column(4, 4, 10)  # Format ID Columns
+                worksheet.set_column(1, 2, 40)  # Format Text Columns
+                worksheet.set_column(5, 6, 40)  # Format Text Columns
+                worksheet.set_column(3, 3, 15)  # Format Divider
+                # Build out Headers
+                worksheet.write('A1', 'Fault ID', bold)
+                worksheet.write('B1', 'Text', bold)
+                worksheet.write('C1', 'AltText', bold)
+                # Skip Column D For readability
+                worksheet.write('E1', 'Message ID', bold)
+                worksheet.write('F1', 'Text', bold)
+                worksheet.write('G1', 'AltText', bold)
+                # enumerate and write out tag data for Faults
+                for index, tag in enumerate(faultTags):
+                    index = index + 2  # Avoid overwriting the Headers
+                    id = worksheet.write(f'A{index}', tag.Id, wrap)
+                    text = worksheet.write(f'B{index}', tag.Text, wrap)
+                    altText = worksheet.write(f'C{index}', tag.AltText, wrap)
+                    if id or text or altText:
+                        raise exceptions.XlsxWriterException(f'Writer Fault Status: Id:{id}, Text:{text}, AltText:{altText}')
+                # enumerate this for messages since they may have different lengths
+                for index, tag in enumerate(messageTags):
+                    index = index + 2  # Avoid overwriting the Headers
+                    id = worksheet.write(f'E{index}', tag.Id, wrap)
+                    text = worksheet.write(f'F{index}', tag.Text, wrap)
+                    altText = worksheet.write(f'G{index}', tag.AltText, wrap)
+                    if id or text or altText:
+                        raise exceptions.XlsxWriterException(f'Writer Message Status: Id:{id}, Text:{text}, AltText:{altText}')
+
+            self.workbook.close()
+        except exceptions.FileCreateError:
+            msg = QMessageBox(QMessageBox.Warning, 'File Create Error',
+                              'XlSX writer cannot edit file.\n'
+                              'Ensure the file is not open by another process and try again.',
+                              QMessageBox.Ok)
+
+            msg.exec()
+
+        except exceptions.XlsxWriterException:
+            msg = QMessageBox(QMessageBox.Warning, 'Errors Detected',
+                              'XLSX writer returned an error during the write process.\n '
+                              'The output file may not be accurate.',
+                              QMessageBox.Ok)
+            msg.exec()
+        else:
+            msg = QMessageBox(QMessageBox.Information, 'Complete', 'Tag Export Complete.', QMessageBox.Ok)
+            msg.exec()
 
     def findPrograms(self):
         """
