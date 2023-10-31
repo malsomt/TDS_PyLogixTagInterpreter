@@ -1,7 +1,10 @@
+from typing import Union
+
 import pylogix
 from PyQt5 import Qt
+from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import QMessageBox, QProgressDialog, QDialog, QCheckBox
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QVariant
 
 import xlsxwriter
 from xlsxwriter import exceptions as xlsx_exc
@@ -25,6 +28,7 @@ class ExcelInterface:
         self._filePath = ''
         self.workbook = None
         self.filePath = filepath
+        self.progDict = {}
 
     @property
     def filePath(self):
@@ -112,6 +116,7 @@ class ExcelInterface:
             progressBox.show()
 
             for index, prog in enumerate(progNames):
+                progressBox.setLabelText(f'Importing tgs from "{prog}"')
                 sheet = self.workbook[prog]
                 if sheet.max_column != 7:
                     raise Exception('Invalid Excel input format')
@@ -128,31 +133,38 @@ class ExcelInterface:
                 for row in read:  # iterate read rows and access by column index
                     try:
                         fm = GeneralMessageExt()
-                        fm.Id = int(row[0].value)  # Fault Id
-                        fm.Text = str(row[1].value)  # Fault Text
-                        fm.AltText = str(row[2].value)  # Fault AltText
-                        faultMessages.append(fm)
+                        Id = row[0].value
+                        if Id is not None:
+                            fm.newId = row[0].value  # Fault Id
+                            fm.newText = row[1].value  # Fault Text
+                            fm.newAltText = row[2].value  # Fault AltText
+                            faultMessages.append(fm)
                     except IndexError:
                         # Index errors will occur as message arrays will not match length, simply ignore
                         pass
                     try:
-                        om = GeneralMessageExt()
-                        om.Id = int(row[4].value)  # Message ID
-                        om.Text = str(row[5].value)  # Message Text
-                        om.AltText = str(row[6].value)  # Message AltText
-                        operatorMessages.append(om)
+                        Id = row[4].value
+                        if Id is not None:
+                            om = GeneralMessageExt()
+                            om.newId = row[4].value  # Message ID
+                            om.newText = row[5].value   # Message Text
+                            om.newAltText = row[5].value  # Message AltText
+                            operatorMessages.append(om)
                     except IndexError:
                         # Index errors will occur as message arrays will not match length, simply ignore
                         pass
-                    print(faultMessages)
-                    print(operatorMessages)
+                    # Add Fault and Message tags to a dictionary as a tuple
+                    tags = (faultMessages, operatorMessages)
+                    self.progDict[prog] = tags
             progressBox.setValue(len(progNames))  # Should kill the progress dialog box
             progressBox.close()
 
             window = Import_Window(progNames)
-            if window.exec():
-                # TODO: Send faults from here. Look to move sendFaults from the message window to message function script.
+            if window.exec():  # execute the window and wait for the return
 
+                for prog in window.targetList:
+                    messageFunctions.send_faults(plc=self.plc, progName=prog, tagList=self.progDict[prog][0])
+                    messageFunctions.send_messages(plc=self.plc, progName=prog, tagList=self.progDict[prog][1])
 
         except ox_exc.InvalidFileException as e:
             msg = QMessageBox(QMessageBox.Warning, 'Invalid File Exception',
@@ -212,20 +224,23 @@ class Import_Window(Ui_Import_Target, QDialog):
         self.pbn_write.clicked.connect(self.action_writeTags)
         self.targetList = []
         self.progList = progList
+        self.model = QStandardItemModel()
         self.buildCheckList()
 
     def buildCheckList(self):
         # Build Program list in listbox out of checkboxes
         for prog in self.progList:
-            item = QCheckBox(prog)
-            item.setChecked(True)
-            self.lst_chkboxes.addItem(item)
+            item = QStandardItem(prog)
+            item.setFlags(Qt.ItemIsUserCheckable | Qt.ItemIsEnabled)
+            item.setData(QVariant(Qt.Checked), Qt.CheckStateRole)
+            self.model.appendRow(item)
+        self.lst_chkboxes.setModel(self.model)
 
     def action_writeTags(self):
         # Get program list of checked programs and pass to tag writer
-        for item in self.lst_chkboxes:
-            assert isinstance(item, QCheckBox)
-            if item.isChecked():
+        for index in range(self.model.rowCount()):
+            item = self.model.item(index, 0)  # row by index, column 0 since only one column
+            if item.checkState():
                 self.targetList.append(item.text())
 
-        self.accept() # Closes dialogbox
+        self.accept()  # Closes dialogbox
