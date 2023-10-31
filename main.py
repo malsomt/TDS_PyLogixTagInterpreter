@@ -4,7 +4,7 @@ import time
 
 from PyQt5.QtCore import QEvent
 from PyQt5.QtGui import QKeySequence, QColor
-from PyQt5.QtWidgets import QApplication, QMessageBox, QFileDialog
+from PyQt5.QtWidgets import QApplication, QFileDialog
 
 from MainWindow import *
 from MessageWindow import *
@@ -13,8 +13,8 @@ from definitions import *
 from excel_interface import ExcelInterface
 from messageFunctions import loadMessages, loadFaults, sortTagList
 
-global windowDict
-global plc
+global windowDict  # Maintain all QT window pointers in dictionary for easy commanding from outside scope
+global plc  # Global plc variable created as master instance of PLC class
 
 
 class Application(Ui_MainWindow, QtWidgets.QMainWindow):
@@ -27,6 +27,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.btn_loadPrograms.clicked.connect(self.action_loadPrograms)
         self.lst_components.doubleClicked.connect(self.action_editSelectProgram)
         self.btn_export.clicked.connect(self.action_export)
+        self.btn_import.clicked.connect(self.action_import)
         self._connected = None
         self.connected = False
 
@@ -48,7 +49,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.group_components.setEnabled(flag)
         # Override Export/ImportButtons for V1
         self.btn_export.setEnabled(True)
-        self.btn_import.setEnabled(False)
+        self.btn_import.setEnabled(True)
 
     def action_export(self):
         global windowDict
@@ -59,6 +60,16 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
                                                   "Excel Files (*.xlsx)", options=options)
         file = ExcelInterface(plc=plc, filepath=filePath)
         file.Export()
+
+    def action_import(self):
+        global windowDict
+        global plc
+        options = QFileDialog.Options()
+        # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
+        filePath, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
+                                                  "Excel Files (*.xlsx)", options=options)
+        file = ExcelInterface(plc=plc, filepath=filePath)
+        file.Import()
 
     def action_connectToPLC(self):
         self.status_disp.setText('Attempting to connect...')

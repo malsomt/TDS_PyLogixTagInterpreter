@@ -43,6 +43,9 @@ class GeneralMessage:
         if byteArray is not None:
             assert isinstance(byteArray, bytes) and len(byteArray)
             lu = LogixUnpack()
+            self._Id = 0
+            self._Text = ''
+            self._AltText = ''
             try:
                 self.Id = lu.unpack_DINT(byteArray[:3])
                 self.Text = lu.unpack_STRING(byteArray[4:90])
@@ -61,9 +64,44 @@ class GeneralMessage:
     def __str__(self):
         return f'ID: {self.Id}\nText: {self.Text}\nAltText: {self.AltText}\n'
 
+    @property
+    def Id(self):
+        return self._Id
+
+    @Id.setter
+    def Id(self, input):
+        assert isinstance(input, int)
+        self._Id = input
+
+    @property
+    def Text(self):
+        return self._Text
+
+    @Text.setter
+    def Text(self, input):
+        assert isinstance(input, str)
+        self._Text = input
+
+    @property
+    def AltText(self):
+        return self._AltText
+
+    @AltText.setter
+    def AltText(self, input):
+        assert isinstance(input, str)
+        self._AltText = input
+
+    @staticmethod
+    def truncate(input):
+        if len(input) > 82:
+            return input[:82]  # truncate
+        else:
+            return input
+
 
 class GeneralMessageExt(GeneralMessage):
     # GeneralMessage class extended to include edit flag and ._newXXX for use when editing table
+
     def __init__(self, byteArray=None):
         super().__init__(byteArray)
         self.edits = False

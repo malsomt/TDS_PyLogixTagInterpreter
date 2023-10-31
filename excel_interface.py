@@ -1,9 +1,15 @@
 import pylogix
-from PyQt5 import QtWidgets, Qt
-from PyQt5.QtWidgets import QMessageBox
-import ExportWindow
+from PyQt5 import Qt
+from PyQt5.QtWidgets import QMessageBox, QProgressDialog, QDialog, QCheckBox
+from PyQt5.QtCore import Qt
+
 import xlsxwriter
-from xlsxwriter import exceptions
+from xlsxwriter import exceptions as xlsx_exc
+import openpyxl
+import openpyxl.utils.exceptions as ox_exc
+
+from ImportWindow import Ui_Import_Target
+from definitions import GeneralMessageExt
 
 import messageFunctions
 
@@ -14,7 +20,6 @@ class ExcelInterface:
     """
 
     def __init__(self, plc=None, filepath=''):
-        file = xlsxwriter.Workbook('Insert name')
         assert isinstance(plc, pylogix.PLC)
         self.plc = plc  # pointer to plc object
         self._filePath = ''
@@ -27,7 +32,7 @@ class ExcelInterface:
 
     @filePath.setter
     def filePath(self, path):
-        # TODO check for valid filepath/ folder structure
+        # Filepath is set by save dialog, checking validity is redundant
         self._filePath = path
 
     def Export(self):
@@ -64,7 +69,8 @@ class ExcelInterface:
                     text = worksheet.write(f'B{index}', tag.Text, wrap)
                     altText = worksheet.write(f'C{index}', tag.AltText, wrap)
                     if id or text or altText:
-                        raise exceptions.XlsxWriterException(f'Writer Fault Status: Id:{id}, Text:{text}, AltText:{altText}')
+                        raise xlsx_exc.XlsxWriterException(
+                            f'Writer Fault Status: Id:{id}, Text:{text}, AltText:{altText}')
                 # enumerate this for messages since they may have different lengths
                 for index, tag in enumerate(messageTags):
                     index = index + 2  # Avoid overwriting the Headers
@@ -72,18 +78,18 @@ class ExcelInterface:
                     text = worksheet.write(f'F{index}', tag.Text, wrap)
                     altText = worksheet.write(f'G{index}', tag.AltText, wrap)
                     if id or text or altText:
-                        raise exceptions.XlsxWriterException(f'Writer Message Status: Id:{id}, Text:{text}, AltText:{altText}')
-
+                        raise xlsx_exc.XlsxWriterException(
+                            f'Writer Message Status: Id:{id}, Text:{text}, AltText:{altText}')
             self.workbook.close()
-        except exceptions.FileCreateError:
+
+        except xlsx_exc.FileCreateError:
             msg = QMessageBox(QMessageBox.Warning, 'File Create Error',
                               'XlSX writer cannot edit file.\n'
                               'Ensure the file is not open by another process and try again.',
                               QMessageBox.Ok)
-
             msg.exec()
 
-        except exceptions.XlsxWriterException:
+        except xlsx_exc.XlsxWriterException:
             msg = QMessageBox(QMessageBox.Warning, 'Errors Detected',
                               'XLSX writer returned an error during the write process.\n '
                               'The output file may not be accurate.',
@@ -91,6 +97,75 @@ class ExcelInterface:
             msg.exec()
         else:
             msg = QMessageBox(QMessageBox.Information, 'Complete', 'Tag Export Complete.', QMessageBox.Ok)
+            msg.exec()
+
+    def Import(self):
+        """
+        Import function uses openpyxl library to open and import data for read operations.
+        :return:
+        """
+        try:
+            self.workbook = openpyxl.load_workbook(self._filePath, read_only=True)
+            progNames = self.workbook.sheetnames  # return list of sheet names in excel
+            progressBox = QProgressDialog('Doing super duper stuff...', '', 0, len(progNames))
+            progressBox.setWindowModality(Qt.WindowModal)
+            progressBox.show()
+
+            for index, prog in enumerate(progNames):
+                sheet = self.workbook[prog]
+                if sheet.max_column != 7:
+                    raise Exception('Invalid Excel input format')
+                rowCount = sheet.max_row
+                read = sheet[f'A2:G{rowCount}']
+                """
+                sheet read object returns a tuple of rows
+                To access individual cells, example: 'read[0][0].value' returns the value of the above 'read' variable 
+                as row[2]col[A]. Remember excel rows start at 1 while the tuples will start at 0. 
+                """
+                faultMessages = []
+                operatorMessages = []
+                progressBox.setValue(index)
+                for row in read:  # iterate read rows and access by column index
+                    try:
+                        fm = GeneralMessageExt()
+                        fm.Id = int(row[0].value)  # Fault Id
+                        fm.Text = str(row[1].value)  # Fault Text
+                        fm.AltText = str(row[2].value)  # Fault AltText
+                        faultMessages.append(fm)
+                    except IndexError:
+                        # Index errors will occur as message arrays will not match length, simply ignore
+                        pass
+                    try:
+                        om = GeneralMessageExt()
+                        om.Id = int(row[4].value)  # Message ID
+                        om.Text = str(row[5].value)  # Message Text
+                        om.AltText = str(row[6].value)  # Message AltText
+                        operatorMessages.append(om)
+                    except IndexError:
+                        # Index errors will occur as message arrays will not match length, simply ignore
+                        pass
+                    print(faultMessages)
+                    print(operatorMessages)
+            progressBox.setValue(len(progNames))  # Should kill the progress dialog box
+            progressBox.close()
+
+            window = Import_Window(progNames)
+            if window.exec():
+                # TODO: Send faults from here. Look to move sendFaults from the message window to message function script.
+
+
+        except ox_exc.InvalidFileException as e:
+            msg = QMessageBox(QMessageBox.Warning, 'Invalid File Exception',
+                              'Exception was thrown when attempting top read from file.\n'
+                              f'{e}',
+                              QMessageBox.Ok)
+            msg.exec()
+
+        except ox_exc.NamedRangeException as e:
+            msg = QMessageBox(QMessageBox.Warning, 'Invalid Range Exception',
+                              'Named Range Exception during Import.\n'
+                              f'{e}',
+                              QMessageBox.Ok)
             msg.exec()
 
     def findPrograms(self):
@@ -128,48 +203,29 @@ class ExcelInterface:
         print(filteredProgList)
         return filteredProgList
 
-    def Import(self):
-        pass
 
-# class ExportImportWindow(ExportWindow.Ui_Export_Target, QtWidgets.QDialog):
-#     def __init__(self, plc):
-#         super(ExportImportWindow, self).__init__()
-#         self.setupUi(self)
-#         self.setWindowTitle('Set Export Target Path')
-#         self.pbn_Export.clicked.connect(self.action_export)
-#         self.pbn_FileExplorer.clicked.connect(self.action_fileDialog)
-#         self._filePath = None
-#         self.filePath = ''
-#         self.plc = plc
-#
-#     def action_export(self):
-#         # Create a custom MessageBox that locks the main thread
-#         # Export Message class has extended plc to json function that calls itself on execution
-#         # will return with a success of failure
-#         progList = self.plc.GetProgramsList()
-#         print(progList)
-#         # exportFile = ExcelInterface(plc)
-#         # msg = QtWidgets.QProgressDialog("Copying files...", "Abort Copy", 0, len(progList))
-#         # msg.setWindowModality(Qt.WindowModal)
-#
-#     def action_fileDialog(self):
-#         options = QFileDialog.Options()
-#         # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
-#         fileName, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "",
-#                                                   "Excel Files (*.xlxs)", options=options)
-#         self.filePath = fileName  # Set filepath to the line edit box
-#
-#     @property
-#     def filePath(self):
-#         return self._filePath
-#
-#     @filePath.setter
-#     def filePath(self, fp):
-#         # Check for empty string, insert more params later if necessary
-#         # Enable the Export pushbutton if valid and disable if not.
-#         if fp != '':
-#             self._filePath = fp
-#             self.status_filePath.setText(self._filePath)
-#             self.pbn_Export.setEnabled(True)
-#         else:
-#             self.pbn_Export.setEnabled(False)
+class Import_Window(Ui_Import_Target, QDialog):
+    def __init__(self, progList):
+        super(Import_Window, self).__init__()
+        self.setupUi(self)
+        self.setWindowTitle('Tag Import Selection')
+        self.pbn_write.clicked.connect(self.action_writeTags)
+        self.targetList = []
+        self.progList = progList
+        self.buildCheckList()
+
+    def buildCheckList(self):
+        # Build Program list in listbox out of checkboxes
+        for prog in self.progList:
+            item = QCheckBox(prog)
+            item.setChecked(True)
+            self.lst_chkboxes.addItem(item)
+
+    def action_writeTags(self):
+        # Get program list of checked programs and pass to tag writer
+        for item in self.lst_chkboxes:
+            assert isinstance(item, QCheckBox)
+            if item.isChecked():
+                self.targetList.append(item.text())
+
+        self.accept() # Closes dialogbox
