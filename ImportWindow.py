@@ -26,15 +26,15 @@ class Ui_Import_Target(object):
         self.gridLayout.setObjectName("gridLayout")
         self.pbn_write = QtWidgets.QPushButton(Import_Target)
         self.pbn_write.setObjectName("pbn_write")
-        self.gridLayout.addWidget(self.pbn_write, 3, 1, 1, 1)
+        self.gridLayout.addWidget(self.pbn_write, 3, 2, 1, 1)
         spacerItem = QtWidgets.QSpacerItem(40, 20, QtWidgets.QSizePolicy.Expanding, QtWidgets.QSizePolicy.Minimum)
-        self.gridLayout.addItem(spacerItem, 3, 0, 1, 1)
-        self.lst_chkboxes = QtWidgets.QListWidget(Import_Target)
+        self.gridLayout.addItem(spacerItem, 3, 0, 1, 2)
+        self.lst_chkboxes = QtWidgets.QListView(Import_Target)
         self.lst_chkboxes.setObjectName("lst_chkboxes")
-        self.gridLayout.addWidget(self.lst_chkboxes, 1, 0, 1, 2)
+        self.gridLayout.addWidget(self.lst_chkboxes, 1, 0, 1, 3)
         self.label = QtWidgets.QLabel(Import_Target)
         self.label.setObjectName("label")
-        self.gridLayout.addWidget(self.label, 0, 0, 1, 1)
+        self.gridLayout.addWidget(self.label, 0, 0, 1, 2)
 
         self.retranslateUi(Import_Target)
         QtCore.QMetaObject.connectSlotsByName(Import_Target)
@@ -42,5 +42,5 @@ class Ui_Import_Target(object):
     def retranslateUi(self, Import_Target):
         _translate = QtCore.QCoreApplication.translate
         Import_Target.setWindowTitle(_translate("Import_Target", "Select Export File Path"))
-        self.pbn_write.setText(_translate("Import_Target", "PushButton"))
-        self.label.setText(_translate("Import_Target", "Available Programs"))
+        self.pbn_write.setText(_translate("Import_Target", "Write to PLC"))
+        self.label.setText(_translate("Import_Target", "Programs Found in XLSX File:"))
