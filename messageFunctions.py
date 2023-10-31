@@ -1,6 +1,7 @@
 import pylogix
+from pylogix import PLC
 
-from definitions import parse_GeneralMessageArray, GeneralMessageExt
+from definitions import parse_GeneralMessageArray, GeneralMessageExt, PLCExt
 
 
 def loadFaults(plc, progName):
@@ -97,3 +98,23 @@ def sortTagList(tagList):
     for _ in range(fillLen):  # fill in list with blank tags
         tempList.append(GeneralMessageExt())
     return tempList
+
+
+def send_faults(plc, tagList, progName):
+    assert isinstance(plc, PLCExt)
+    for index, fault in enumerate(tagList):
+        assert isinstance(fault, GeneralMessageExt)
+        print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+        plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
+        plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
+        plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
+
+
+def send_messages(plc, tagList, progName):
+    assert isinstance(plc, PLCExt)
+    for index, msg in enumerate(tagList):
+        assert isinstance(msg, GeneralMessageExt)
+        print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
+        plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
+        plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
+        plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
