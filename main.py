@@ -6,6 +6,7 @@ from PyQt5.QtCore import QEvent
 from PyQt5.QtGui import QKeySequence, QColor
 from PyQt5.QtWidgets import QApplication, QFileDialog
 
+import messageFunctions
 from MainWindow import *
 from MessageWindow import *
 import threading
@@ -334,42 +335,42 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.lcd_msg.display(len(self.messageTags))
         self.status_msg.setText(self.prepend_DateTime(update))
 
-    def send_faults(self, changeList):
-        global plc
-        assert isinstance(plc, PLCExt)
-        progName = self.windowTitle()
-        while plc.busy:  # Simple wait if plc object is busy.
-            time.sleep(.01)
+    # def send_faults(self, changeList):
+    #     global plc
+    #     assert isinstance(plc, PLCExt)
+    #     progName = self.windowTitle()
+    #     while plc.busy:  # Simple wait if plc object is busy.
+    #         time.sleep(.01)
+    #
+    #     for index, fault in enumerate(changeList):
+    #         assert isinstance(fault, GeneralMessageExt)
+    #         print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+    #         update = f'Sending Program:{progName}.MessageArrayFault[{index}]'
+    #         self.status_fault.setText(self.prepend_DateTime(update))
+    #         plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
+    #         plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
+    #         plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
+    #
+    #     self.status_fault.setText(self.prepend_DateTime(f'Sending {len(changeList)} tags...Complete'))
+    #     self.action_reload_faults()  # reload tags from PLC after they have been sent
 
-        for index, fault in enumerate(changeList):
-            assert isinstance(fault, GeneralMessageExt)
-            print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
-            update = f'Sending Program:{progName}.MessageArrayFault[{index}]'
-            self.status_fault.setText(self.prepend_DateTime(update))
-            plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
-            plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
-            plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
-
-        self.status_fault.setText(self.prepend_DateTime(f'Sending {len(changeList)} tags...Complete'))
-        self.action_reload_faults()  # reload tags from PLC after they have been sent
-
-    def send_msgs(self, changeList):
-        global plc
-        assert isinstance(plc, PLCExt)
-        progName = self.windowTitle()
-        while plc.busy:  # Simple wait if plc object is busy.
-            time.sleep(.01)
-        for index, msg in enumerate(changeList):
-            assert isinstance(msg, GeneralMessageExt)
-            update = f'Sending Program:{progName}.MessageArrayOperator[{index}]'
-            print(update)
-            self.status_msg.setText(self.prepend_DateTime(update))
-            plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
-            plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
-            plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
-
-        self.status_msg.setText(self.prepend_DateTime(f'Sending {len(changeList)} tags...Complete'))
-        self.action_reload_msgs()  # reload tags from PLC after they have been sent
+    # def send_msgs(self, changeList):
+    #     global plc
+    #     assert isinstance(plc, PLCExt)
+    #     progName = self.windowTitle()
+    #     while plc.busy:  # Simple wait if plc object is busy.
+    #         time.sleep(.01)
+    #     for index, msg in enumerate(changeList):
+    #         assert isinstance(msg, GeneralMessageExt)
+    #         update = f'Sending Program:{progName}.MessageArrayOperator[{index}]'
+    #         print(update)
+    #         self.status_msg.setText(self.prepend_DateTime(update))
+    #         plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
+    #         plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
+    #         plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
+    #
+    #     self.status_msg.setText(self.prepend_DateTime(f'Sending {len(changeList)} tags...Complete'))
+    #     self.action_reload_msgs()  # reload tags from PLC after they have been sent
 
     def action_itemEdited_fault(self, item):
         assert isinstance(item, QtWidgets.QTableWidgetItem)
@@ -447,29 +448,35 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         Action changed to send every tag every time.
         Sending Edits only feature has been removed
         """
+        global plc
+        progName = self.windowTitle()
         if self.chkbx_faultSortOut.isChecked():
             changeList = sortTagList(self.faultTags)
         else:
             changeList = self.faultTags
 
         if len(changeList):
+            messageFunctions.send_faults(plc=plc, progName=progName,tagList=changeList)
             # TODO Look to change into Progress DialogBox
-            thread = threading.Thread(target=self.send_faults, args=(changeList,), daemon=True)
-            thread.start()
+            # thread = threading.Thread(target=self.send_faults, args=(changeList,), daemon=True)
+            # thread.start()
 
     def action_send_msgs(self):
         """
         Replication of action_send_faults.
         """
+        global plc
+        progName = self.windowTitle()
         if self.chkbx_msgSortOut.isChecked():
             changeList = sortTagList(self.messageTags)
         else:
             changeList = self.messageTags
 
         if len(changeList):
+            messageFunctions.send_messages(plc=plc, progName=progName, tagList=changeList)
             # TODO Look to change into Progress DialogBox
-            thread = threading.Thread(target=self.send_msgs, args=(changeList,), daemon=True)
-            thread.start()
+            # thread = threading.Thread(target=self.send_msgs, args=(changeList,), daemon=True)
+            # thread.start()
 
     @property
     def faultTags(self):
