@@ -129,6 +129,7 @@ class GeneralMessageExt(GeneralMessage):
 
     @newText.setter
     def newText(self, val):
+        val = '' if val is None else val
         assert isinstance(val, str)
         assert len(val) <= 82  # Max message length is 82 characters
         self._newText = val
@@ -143,6 +144,7 @@ class GeneralMessageExt(GeneralMessage):
 
     @newAltText.setter
     def newAltText(self, val):
+        val = '' if val is None else val
         assert isinstance(val, str)
         assert len(val) <= 82  # Max message length is 82 characters
         self._newAltText = val
