@@ -1,6 +1,5 @@
 import csv
 import io
-import time
 
 from PyQt5.QtCore import QEvent
 from PyQt5.QtGui import QKeySequence, QColor
