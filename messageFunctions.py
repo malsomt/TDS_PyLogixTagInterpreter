@@ -22,12 +22,7 @@ def loadFaults(plc, progName):
         if arrayLength != 0:
             break  # Kill Loop once found
     if arrayLength == 0:
-        # # print('Killed Fault Thread')
-        # mbx = QMessageBox(QMessageBox.Information, 'Fault Message Error',
-        #                   'Unable to find any "MessageArrayFault" in this component program.',
-        #                   QMessageBox.Ok)
-        # mbx.exec()
-        return  # Exit Function
+        return None  # Exit Function
     retry = True  # flag used to loop in event of failed PLC read
     attempts = 2
     while retry:
@@ -62,12 +57,7 @@ def loadMessages(plc, progName):
         if arrayLength != 0:
             break
     if arrayLength == 0:
-        # mbx = QMessageBox(QMessageBox.Information, 'Operator Message Error',
-        #                   'Unable to find any "MessageArrayOperator" in this component program.',
-        #                   QMessageBox.Ok)
-        # mbx.exec()
         return None  # Kill thread
-
     retry = True  # flag used to loop in event of failed PLC read
     attempts = 2
     while retry:
@@ -101,20 +91,67 @@ def sortTagList(tagList):
 
 
 def send_faults(plc, tagList, progName):
+    """
+
+    :param plc:
+    :param tagList:
+    :param progName:
+    :return List of message strings that failed to write
+    """
     assert isinstance(plc, PLCExt)
+    failureList = []  # empty List
     for index, fault in enumerate(tagList):
         assert isinstance(fault, GeneralMessageExt)
-        print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
-        plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
-        plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
-        plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
+        retry = True  # flag used to loop in event of failed PLC read
+        attempts = 2
+        while retry:
+            print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            print(attempts)
+            retId = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
+            retText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
+            retAltText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
+            if writeFailed(retId) or writeFailed(retText) or writeFailed(retAltText):
+                attempts -= 1  # decrement attempt count
+                retry = False if attempts <= 0 else True
+                if not retry:
+                    failureList.append(f'Program:{progName}.MessageArrayFault[{index}])')
+            else:
+                retry = False  # Kill retry, successful write
+    return failureList
 
 
 def send_messages(plc, tagList, progName):
+    """
+
+    :param plc: pointer to pylogx.PLC object
+    :param tagList: List of tags of type GeneralMessageExt to be sent
+    :param progName: Program Name of the targeted tags
+    :return:
+    """
     assert isinstance(plc, PLCExt)
+    failureList = []
     for index, msg in enumerate(tagList):
         assert isinstance(msg, GeneralMessageExt)
-        print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
-        plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
-        plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
-        plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
+        retry = True  # flag used to loop in event of failed PLC read
+        attempts = 2
+        while retry:
+            print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
+            retId = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
+            retText = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
+            retAltText = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
+            if writeFailed(retId) or writeFailed(retText) or writeFailed(retAltText):
+                attempts -= 1  # decrement attempt count
+                retry = False if attempts <= 0 else True
+                if not retry:
+                    failureList.append(f'Program:{progName}.MessageArrayOperator[{index}])')
+            else:
+                retry = False  # Kill retry, successful write
+    return failureList
+
+
+def writeFailed(ret):
+    assert isinstance(ret, pylogix.eip.Response)
+    if ret.Status == 'Success':
+        return False
+    else:
+        return True

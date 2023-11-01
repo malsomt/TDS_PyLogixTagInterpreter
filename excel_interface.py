@@ -1,5 +1,5 @@
 import pylogix
-from PyQt5 import Qt
+from PyQt5 import Qt, QtGui
 from PyQt5.QtGui import QStandardItemModel, QStandardItem
 from PyQt5.QtWidgets import QMessageBox, QProgressDialog, QDialog, QCheckBox
 from PyQt5.QtCore import Qt, QVariant
@@ -27,6 +27,7 @@ class ExcelInterface:
         self.workbook = None
         self.filePath = filepath
         self.progDict = {}
+        self.failList = []
 
     @property
     def filePath(self):
@@ -109,12 +110,8 @@ class ExcelInterface:
         try:
             self.workbook = openpyxl.load_workbook(self._filePath, read_only=True)
             progNames = self.workbook.sheetnames  # return list of sheet names in excel
-            progressBox = QProgressDialog('Doing super duper stuff...', '', 0, len(progNames))
-            progressBox.setWindowModality(Qt.WindowModal)
-            progressBox.show()
 
             for index, prog in enumerate(progNames):
-                progressBox.setLabelText(f'Importing tgs from "{prog}"')
                 sheet = self.workbook[prog]
                 if sheet.max_column != 7:
                     raise Exception('Invalid Excel input format')
@@ -127,7 +124,6 @@ class ExcelInterface:
                 """
                 faultMessages = []
                 operatorMessages = []
-                progressBox.setValue(index)
                 for row in read:  # iterate read rows and access by column index
                     try:
                         fm = GeneralMessageExt()
@@ -154,15 +150,37 @@ class ExcelInterface:
                     # Add Fault and Message tags to a dictionary as a tuple
                     tags = (faultMessages, operatorMessages)
                     self.progDict[prog] = tags
-            progressBox.setValue(len(progNames))  # Should kill the progress dialog box
-            progressBox.close()
 
             window = Import_Window(progNames)
             if window.exec():  # execute the window and wait for the return
+                progressBox = QProgressDialog('Doing super duper stuff...', '', 0, len(window.targetList))
+                progressBox.setWindowModality(Qt.WindowModal)
+                progressBox.show()
+                for index, prog in enumerate(window.targetList):
+                    progressBox.setLabelText(f'Writing Fault tags to "{prog}"')
+                    """ 
+                    Since this is all on the same thread, call the parent GUI to process flagged events
+                    to ensure that the progress Dialog is updated after setting the text or index.
+                    """
+                    QtGui.QGuiApplication.instance().processEvents()
 
-                for prog in window.targetList:
-                    messageFunctions.send_faults(plc=self.plc, progName=prog, tagList=self.progDict[prog][0])
-                    messageFunctions.send_messages(plc=self.plc, progName=prog, tagList=self.progDict[prog][1])
+                    self.failList += messageFunctions.send_faults(plc=self.plc, progName=prog, tagList=self.progDict[prog][0])
+                    progressBox.setLabelText(f'Writing Operator Message tags to "{prog}"')
+                    QtGui.QGuiApplication.instance().processEvents()  # Call to update Progress Bar
+                    self.failList += messageFunctions.send_messages(plc=self.plc, progName=prog, tagList=self.progDict[prog][1])
+                    progressBox.setValue(index)  # Should kill the progress dialog box
+                    QtGui.QGuiApplication.instance().processEvents()
+                progressBox.close()
+                if len(self.failList) == 0:
+                    mbx = QMessageBox(QMessageBox.Information, 'Tag Import Complete',
+                                      'Tag Import Complete!', QMessageBox.Ok)
+                    mbx.exec()
+                else:
+                    mbx = QMessageBox(QMessageBox.Information, 'Tag Import Complete',
+                                      'Tag Import Complete with failures...\n'
+                                      f'{self.failList[:20]}\n...', QMessageBox.Ok)
+                    # show only the first 20, limit how big this box will be
+                    mbx.exec()
 
         except ox_exc.InvalidFileException as e:
             msg = QMessageBox(QMessageBox.Warning, 'Invalid File Exception',

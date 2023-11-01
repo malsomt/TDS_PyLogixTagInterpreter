@@ -3,7 +3,7 @@ import io
 
 from PyQt5.QtCore import QEvent
 from PyQt5.QtGui import QKeySequence, QColor
-from PyQt5.QtWidgets import QApplication, QFileDialog
+from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox
 
 import messageFunctions
 from MainWindow import *
@@ -56,20 +56,23 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         global plc
         options = QFileDialog.Options()
         # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
-        filePath, _ = QFileDialog.getSaveFileName(self, "QFileDialog.getSaveFileName()", "",
+        filePath, _ = QFileDialog.getSaveFileName(self, "Target for Tag File", "",
                                                   "Excel Files (*.xlsx)", options=options)
-        file = ExcelInterface(plc=plc, filepath=filePath)
-        file.Export()
+        if filePath != '':
+            print(str(filePath))
+            file = ExcelInterface(plc=plc, filepath=filePath)
+            file.Export()
 
     def action_import(self):
         global windowDict
         global plc
         options = QFileDialog.Options()
         # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
-        filePath, _ = QFileDialog.getOpenFileName(self, "QFileDialog.getOpenFileName()", "",
+        filePath, _ = QFileDialog.getOpenFileName(self, "Import Tag File", "",
                                                   "Excel Files (*.xlsx)", options=options)
-        file = ExcelInterface(plc=plc, filepath=filePath)
-        file.Import()
+        if filePath != '':
+            file = ExcelInterface(plc=plc, filepath=filePath)
+            file.Import()
 
     def action_connectToPLC(self):
         self.status_disp.setText('Attempting to connect...')
@@ -93,6 +96,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         global windowDict
         global plc
         windowDict = {}  # clear window dictionary
+        plc.Close()
         plc = None  # Clear plc tag
 
     def toggleTargetSetup(self, flag):
@@ -203,8 +207,16 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         progName = self.windowTitle()
         self.faultTags = loadFaults(plc, progName)
         self.messageTags = loadMessages(plc, progName)
-        self.display_results_fault()
-        self.display_results_msgs()
+        if self.faultTags is not None and self.messageTags is not None:
+            self.display_results_fault()
+            self.display_results_msgs()
+        else:
+            mbx = QMessageBox(QMessageBox.Information, 'Message Error',
+                              'Unable to find tags "MessageArrayFault" or "MessageArrayOperator" '
+                              'in this component program.',
+                              QMessageBox.Ok)
+            mbx.exec()
+            self.close()  # Kill window
 
     def eventFilter(self, source, event):
         modifiers = QApplication.keyboardModifiers()
@@ -333,43 +345,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         update = f'Loaded {self.tbl_msgs.rowCount()} messages from PLC'
         self.lcd_msg.display(len(self.messageTags))
         self.status_msg.setText(self.prepend_DateTime(update))
-
-    # def send_faults(self, changeList):
-    #     global plc
-    #     assert isinstance(plc, PLCExt)
-    #     progName = self.windowTitle()
-    #     while plc.busy:  # Simple wait if plc object is busy.
-    #         time.sleep(.01)
-    #
-    #     for index, fault in enumerate(changeList):
-    #         assert isinstance(fault, GeneralMessageExt)
-    #         print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
-    #         update = f'Sending Program:{progName}.MessageArrayFault[{index}]'
-    #         self.status_fault.setText(self.prepend_DateTime(update))
-    #         plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
-    #         plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
-    #         plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
-    #
-    #     self.status_fault.setText(self.prepend_DateTime(f'Sending {len(changeList)} tags...Complete'))
-    #     self.action_reload_faults()  # reload tags from PLC after they have been sent
-
-    # def send_msgs(self, changeList):
-    #     global plc
-    #     assert isinstance(plc, PLCExt)
-    #     progName = self.windowTitle()
-    #     while plc.busy:  # Simple wait if plc object is busy.
-    #         time.sleep(.01)
-    #     for index, msg in enumerate(changeList):
-    #         assert isinstance(msg, GeneralMessageExt)
-    #         update = f'Sending Program:{progName}.MessageArrayOperator[{index}]'
-    #         print(update)
-    #         self.status_msg.setText(self.prepend_DateTime(update))
-    #         plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
-    #         plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
-    #         plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
-    #
-    #     self.status_msg.setText(self.prepend_DateTime(f'Sending {len(changeList)} tags...Complete'))
-    #     self.action_reload_msgs()  # reload tags from PLC after they have been sent
 
     def action_itemEdited_fault(self, item):
         assert isinstance(item, QtWidgets.QTableWidgetItem)
