@@ -213,8 +213,7 @@ class ExcelInterface:
                 break  # exit while
             else:
                 if attempts == 0:
-                    # TODO: Look into returning a Message Message Dialog box
-                    return -1  # Failed by communication
+                    return programList   # Return the empty List
 
         # Look for 'MessageArrayFault' and MessageArrayOperator and remove programs without those tags
         filteredProgList = []

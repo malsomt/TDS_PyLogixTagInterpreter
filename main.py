@@ -311,7 +311,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                                           arr[selection_row][selection_column])
             return
         except IndexError:
-            # Ignore Index Error , re-create by selecting more cells than clipboard has available.
+            # Ignore Index Error , you can re-create by selecting more cells than clipboard has available.
             pass
 
     def display_results_fault(self):
@@ -430,10 +430,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             changeList = self.faultTags
 
         if len(changeList):
-            messageFunctions.send_faults(plc=plc, progName=progName,tagList=changeList)
-            # TODO Look to change into Progress DialogBox
-            # thread = threading.Thread(target=self.send_faults, args=(changeList,), daemon=True)
-            # thread.start()
+            messageFunctions.send_faults(plc=plc, progName=progName, tagList=changeList)
 
     def action_send_msgs(self):
         """
@@ -448,9 +445,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
 
         if len(changeList):
             messageFunctions.send_messages(plc=plc, progName=progName, tagList=changeList)
-            # TODO Look to change into Progress DialogBox
-            # thread = threading.Thread(target=self.send_msgs, args=(changeList,), daemon=True)
-            # thread.start()
 
     @property
     def faultTags(self):
