@@ -17,7 +17,7 @@ import messageFunctions
 
 class ExcelInterface:
     """
-    Interface class contains functions to interface between the PLC object and the output file.
+    Interface class contains functions to interface between the PLC object and the tag excel file.
     """
 
     def __init__(self, plc=None, filepath=''):
