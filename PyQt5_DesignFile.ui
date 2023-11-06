@@ -203,14 +203,14 @@
           </sizepolicy>
          </property>
          <property name="text">
-          <string>Export Tags...</string>
+          <string>Export to xlxs...</string>
          </property>
         </widget>
        </item>
        <item row="3" column="2">
         <widget class="QPushButton" name="btn_import">
          <property name="text">
-          <string>Import Tags...</string>
+          <string>Import from xls...</string>
          </property>
         </widget>
        </item>
