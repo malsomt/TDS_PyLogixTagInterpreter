@@ -47,7 +47,7 @@ class GeneralMessage:
             self._Text = ''
             self._AltText = ''
             try:
-                self.Id = lu.unpack_DINT(byteArray[:3])
+                self.Id = lu.unpack_DINT(byteArray[:4])
                 self.Text = lu.unpack_STRING(byteArray[4:90])
                 self.AltText = lu.unpack_STRING(byteArray[92:])
 
@@ -164,7 +164,7 @@ class LogixUnpack:
     @staticmethod
     def unpack_DINT(byteArray):
         # return DINT, no need to unpack tuple
-        return unpack_from('<H', byteArray, 0)[0]
+        return unpack_from('<i', byteArray, 0)[0]
 
     def unpack_STRING(self, byteArray):
         length = self.unpack_DINT(byteArray[:4])
