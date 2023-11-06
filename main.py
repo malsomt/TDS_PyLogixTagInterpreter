@@ -431,6 +431,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
 
         if len(changeList):
             messageFunctions.send_faults(plc=plc, progName=progName, tagList=changeList)
+            self.faultTags = messageFunctions.loadFaults(plc=plc, progName=progName)
+            self.display_results_fault()
 
     def action_send_msgs(self):
         """
@@ -445,6 +447,10 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
 
         if len(changeList):
             messageFunctions.send_messages(plc=plc, progName=progName, tagList=changeList)
+            self.tbl_msgs.setEnabled(False)
+            self.messageTags = messageFunctions.loadMessages(plc=plc, progName=progName)
+            self.display_results_msgs()
+            self.tbl_msgs.setEnabled(True)
 
     @property
     def faultTags(self):

@@ -1,5 +1,7 @@
 import pylogix
-from pylogix import PLC
+from PyQt5.QtCore import Qt as Core
+from PyQt5.QtWidgets import QProgressDialog
+from PyQt5 import Qt, QtGui
 
 from definitions import parse_GeneralMessageArray, GeneralMessageExt, PLCExt
 
@@ -98,6 +100,9 @@ def send_faults(plc, tagList, progName):
     :param progName:
     :return List of message strings that failed to write
     """
+    progressBox = QProgressDialog('Doing super duper stuff...', '', 0, len(tagList))
+    progressBox.setWindowModality(Core.WindowModal)
+    progressBox.show()
     assert isinstance(plc, PLCExt)
     failureList = []  # empty List
     for index, fault in enumerate(tagList):
@@ -105,7 +110,10 @@ def send_faults(plc, tagList, progName):
         retry = True  # flag used to loop in event of failed PLC read
         attempts = 2
         while retry:
-            print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            progressBox.setLabelText(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            progressBox.setValue(index)
+            QtGui.QGuiApplication.instance().processEvents()
+            #print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
             print(attempts)
             retId = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
             retText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
@@ -117,6 +125,7 @@ def send_faults(plc, tagList, progName):
                     failureList.append(f'Program:{progName}.MessageArrayFault[{index}])')
             else:
                 retry = False  # Kill retry, successful write
+    progressBox.close()
     return failureList
 
 
@@ -128,6 +137,9 @@ def send_messages(plc, tagList, progName):
     :param progName: Program Name of the targeted tags
     :return:
     """
+    progressBox = QProgressDialog('Doing super duper stuff...', '', 0, len(tagList))
+    progressBox.setWindowModality(Core.WindowModal)
+    progressBox.show()
     assert isinstance(plc, PLCExt)
     failureList = []
     for index, msg in enumerate(tagList):
@@ -135,7 +147,10 @@ def send_messages(plc, tagList, progName):
         retry = True  # flag used to loop in event of failed PLC read
         attempts = 2
         while retry:
-            print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
+            progressBox.setLabelText(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
+            progressBox.setValue(index)
+            QtGui.QGuiApplication.instance().processEvents()
+            #print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
             retId = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
             retText = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
             retAltText = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
@@ -146,6 +161,7 @@ def send_messages(plc, tagList, progName):
                     failureList.append(f'Program:{progName}.MessageArrayOperator[{index}])')
             else:
                 retry = False  # Kill retry, successful write
+    progressBox.close()
     return failureList
 
 
