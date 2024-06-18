@@ -126,6 +126,9 @@
     </item>
     <item row="1" column="0">
      <widget class="QTableWidget" name="tbl_faults">
+      <property name="autoFillBackground">
+       <bool>false</bool>
+      </property>
       <property name="tabKeyNavigation">
        <bool>false</bool>
       </property>
@@ -163,15 +166,44 @@
        <property name="text">
         <string>FaultID</string>
        </property>
+       <property name="font">
+        <font>
+         <family>Segoe UI</family>
+         <italic>false</italic>
+         <underline>false</underline>
+         <strikeout>false</strikeout>
+        </font>
+       </property>
+       <property name="background">
+        <color>
+         <red>200</red>
+         <green>200</green>
+         <blue>200</blue>
+        </color>
+       </property>
       </column>
       <column>
        <property name="text">
         <string>Text</string>
        </property>
+       <property name="background">
+        <color>
+         <red>200</red>
+         <green>200</green>
+         <blue>200</blue>
+        </color>
+       </property>
       </column>
       <column>
        <property name="text">
         <string>AltText</string>
+       </property>
+       <property name="background">
+        <color>
+         <red>200</red>
+         <green>200</green>
+         <blue>200</blue>
+        </color>
        </property>
       </column>
      </widget>

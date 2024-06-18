@@ -1,17 +1,15 @@
 import csv
 import io
 
-from PyQt5.QtCore import QEvent
+from PyQt5.QtCore import QEvent, QSettings, QPoint, QSize
 from PyQt5.QtGui import QKeySequence, QColor
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox
 
-import messageFunctions
 from MainWindow import *
 from MessageWindow import *
 import threading
-from definitions import *
 from excel_interface import ExcelInterface
-from messageFunctions import loadMessages, loadFaults, sortTagList
+from messageFunctions import *
 
 global windowDict  # Maintain all QT window pointers in dictionary for easy commanding from outside scope
 global plc  # Global plc variable created as master instance of PLC class
@@ -55,7 +53,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         global windowDict
         global plc
         options = QFileDialog.Options()
-        # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
+        # options |= QFileDialog. DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
         filePath, _ = QFileDialog.getSaveFileName(self, "Target for Tag File", "",
                                                   "Excel Files (*.xlsx)", options=options)
         if filePath != '':
@@ -133,8 +131,9 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         # Use parallel thread for actions
         global thread2
         thread2 = threading.Thread(target=self.start_LoadPrograms)
-        thread2.setDaemon(True)
+        thread2.daemon = True
         thread2.start()
+
 
     def start_LoadPrograms(self):
         # Poll PLC for a list of programs.
@@ -180,6 +179,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def __init__(self):
         super(EditWindow, self).__init__()
         self.setupUi(self)
+        self.settings = QSettings("TDS", "TagTool")
+        self.headerState = 0
         self.ignoreChangeEvent = False
         self._faultTags = []
         self._messageTags = []
@@ -194,6 +195,30 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.chkbx_msgSortIn.stateChanged.connect(self.action_msgSortInCheckboxChanged)
         self.tbl_faults.setColumnWidth(1, 700)
         self.tbl_msgs.setColumnWidth(1, 700)
+        self.read_appSettings()
+
+    def closeEvent(self, event):
+        self.write_appSettings()
+        super().closeEvent(event)
+        event.accept()
+
+    def write_appSettings(self):
+        self.settings.setValue("pos", self.pos())
+        self.settings.setValue("size", self.size())
+
+    def read_appSettings(self):
+        rect = super(EditWindow, self).screen().availableVirtualGeometry()
+        point = self.settings.value("pos", defaultValue=QPoint(50, 50))
+        #print(f'Window Point:{point}')
+        self.resize(self.settings.value("size", defaultValue=QSize(1361, 751)))
+        if rect.contains(point):
+            self.move(self.settings.value("pos", defaultValue=QPoint(50, 50)))
+        else:
+            self.move(QPoint(50, 50))
+
+
+
+
 
     def action_faultSortInCheckboxChanged(self):
         self.action_reload_faults()
@@ -430,8 +455,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             changeList = self.faultTags
 
         if len(changeList):
-            messageFunctions.send_faults(plc=plc, progName=progName, tagList=changeList)
-            self.faultTags = messageFunctions.loadFaults(plc=plc, progName=progName)
+            send_faults(plc=plc, progName=progName, tagList=changeList)
+            self.faultTags = loadFaults(plc=plc, progName=progName)
             self.display_results_fault()
 
     def action_send_msgs(self):
@@ -446,9 +471,9 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             changeList = self.messageTags
 
         if len(changeList):
-            messageFunctions.send_messages(plc=plc, progName=progName, tagList=changeList)
+            send_messages(plc=plc, progName=progName, tagList=changeList)
             self.tbl_msgs.setEnabled(False)
-            self.messageTags = messageFunctions.loadMessages(plc=plc, progName=progName)
+            self.messageTags = loadMessages(plc=plc, progName=progName)
             self.display_results_msgs()
             self.tbl_msgs.setEnabled(True)
 

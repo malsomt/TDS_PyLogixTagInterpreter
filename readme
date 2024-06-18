@@ -10,7 +10,12 @@ main.py is the entry point
 
 pyinstaller command to compile to a single file runtime
 pyinstaller main.py --noconsole --onefile --name TDS_MessageTool --distpath ./Release
-Ensure to run inside the Virtual Environment or pyinstaller will be unable to find the supporting libs.
+
+!!!!Ensure to run inside the Virtual Environment or pyinstaller will be unable to find the supporting libs.!!!
+Also app a path if libs are still not being found...shown below as example.
+
+pyinstaller main.py --noconsole --onefile --name TDS_MessageTool --distpath ./Release -p C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter
+
 
 Readme File here is for my personal notes until a later date.
 Ignore everything below this...
