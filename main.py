@@ -16,10 +16,11 @@ global plc  # Global plc variable created as master instance of PLC class
 
 
 class Application(Ui_MainWindow, QtWidgets.QMainWindow):
+    """This Class extends the functionality of the Main Window Defined by the GUI designer program."""
     def __init__(self):
         super(Application, self).__init__()
         self.setupUi(self)
-        self.setWindowTitle('TDS Message Tool - v1.1')
+        self.setWindowTitle('TDS Message Tool - v1.3')
         self.btn_connect.clicked.connect(self.action_connectToPLC)
         self.btn_disconnect.clicked.connect(self.action_disconnectToPLC)
         self.btn_loadPrograms.clicked.connect(self.action_loadPrograms)
@@ -134,7 +135,6 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         thread2.daemon = True
         thread2.start()
 
-
     def start_LoadPrograms(self):
         # Poll PLC for a list of programs.
         # Return is List of strings in the response.Value
@@ -165,7 +165,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
 
     def action_editSelectProgram(self):
         # Open an instance of the tag editor table.
-        # Give i the name of the program we are editing
+        # Give it the name of the program we are editing
         # Use the program name to place the window object into a global dictionary.
         global windowDict
         progName = self.lst_components.selectedItems()[0].text()
@@ -176,8 +176,9 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
 
 
 class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
+    """This Class extends the functionality of the Edit Window Defined by the GUI designer program."""
     def __init__(self):
-        super(EditWindow, self).__init__()
+        super(EditWindow, self).__init__()  # Init the Base Class 'EditWindow'
         self.setupUi(self)
         self.settings = QSettings("TDS", "TagTool")
         self.headerState = 0
@@ -209,16 +210,11 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def read_appSettings(self):
         rect = super(EditWindow, self).screen().availableVirtualGeometry()
         point = self.settings.value("pos", defaultValue=QPoint(50, 50))
-        #print(f'Window Point:{point}')
         self.resize(self.settings.value("size", defaultValue=QSize(1361, 751)))
         if rect.contains(point):
             self.move(self.settings.value("pos", defaultValue=QPoint(50, 50)))
         else:
             self.move(QPoint(50, 50))
-
-
-
-
 
     def action_faultSortInCheckboxChanged(self):
         self.action_reload_faults()
@@ -244,7 +240,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             self.close()  # Kill window
 
     def eventFilter(self, source, event):
-        modifiers = QApplication.keyboardModifiers()
         if event.type() == QEvent.KeyPress and event.matches(QKeySequence.Copy):
             self.copy_selection()
             return True
@@ -423,7 +418,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             else:  # Slight Gray to Match Alternating default color
                 item.setBackground(QColor(245, 245, 245))
 
-    def prepend_DateTime(self, text):
+    @staticmethod
+    def prepend_DateTime(text):
         from datetime import datetime
         dt = datetime.now()
         out = f'{dt.year}/{dt.month}/{dt.day} {dt.hour}:{dt.minute}:{dt.second}'

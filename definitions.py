@@ -34,8 +34,8 @@ class GeneralMessage:
     UDT defined as 180 bytes
 
     GeneralMessage.Id : DINT \n
-    GeneralMessage.Text : STRING \n
-    GeneralMessage.AltText : STRING \n
+    GeneralMessage.Text : STRING128 \n
+    GeneralMessage.AltText : STRING128 \n
     """
     ByteLength = 180
 
@@ -48,8 +48,8 @@ class GeneralMessage:
             self._AltText = ''
             try:
                 self.Id = lu.unpack_DINT(byteArray[:4])
-                self.Text = lu.unpack_STRING(byteArray[4:90])
-                self.AltText = lu.unpack_STRING(byteArray[92:])
+                self.Text = lu.unpack_STRING(byteArray[4:136])
+                self.AltText = lu.unpack_STRING(byteArray[138:])
 
             except IndexError as e:
                 raise f'General Message could not parse the passed array. Check the size of the array: {e}'
