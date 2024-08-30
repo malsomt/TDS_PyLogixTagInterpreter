@@ -13,8 +13,8 @@ def parse_GeneralMessageArray(byteArray, arraylength):
     :return:
     """
     """Parse the result byte stream."""
-    # General message UDT is defined as 180bytes from the plc
-    # Break the result into 180 byte chunks and pass them to a General Message object.
+    # General message UDT is defined as 268 bytes from the plc
+    # Break the result into 268 byte chunks and pass them to a General Message object.
     # GeneralMessage class will parse the block into its individual elements.
     messageTags = []
     try:
@@ -31,7 +31,7 @@ def parse_GeneralMessageArray(byteArray, arraylength):
 class GeneralMessage:
     """
     Class intended to match UDT in PLC
-    UDT defined as 180 bytes
+    UDT defined as 268 bytes
 
     GeneralMessage.Id : DINT \n
     GeneralMessage.Text : STRING128 \n
