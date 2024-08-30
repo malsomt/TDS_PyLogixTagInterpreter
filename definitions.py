@@ -93,8 +93,8 @@ class GeneralMessage:
 
     @staticmethod
     def truncate(input):
-        if len(input) > 82:
-            return input[:82]  # truncate
+        if len(input) > 128:
+            return input[:128]  # truncate
         else:
             return input
 
