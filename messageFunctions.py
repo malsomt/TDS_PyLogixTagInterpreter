@@ -113,18 +113,43 @@ def send_faults(plc, tagList, progName):
             progressBox.setLabelText(f'Sending Program:{progName}.MessageArrayFault[{index}]')
             progressBox.setValue(index)
             QtGui.QGuiApplication.instance().processEvents()
-            #print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
-            print(attempts)
+            print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            # Because General Message Strings are no longer Base type Strings.
+            # Convert the Strings to byte arrays with custom lengths to match the UDT type String
+            returns = list()
             retId = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
-            retText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text', fault.newText)
-            retAltText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText', fault.newAltText)
-            if writeFailed(retId) or writeFailed(retText) or writeFailed(retAltText):
-                attempts -= 1  # decrement attempt count
-                retry = False if attempts <= 0 else True
-                if not retry:
-                    failureList.append(f'Program:{progName}.MessageArrayFault[{index}])')
+            returns.append(retId)
+            if fault.newText != '':
+                charArrayText = [ord(c) for c in fault.newText]  # Convert String to Byte Array
+
+                retTextLEN = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text.LEN', len(fault.newText))
+                retText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text.DATA[0]', charArrayText)
+                returns.append(retTextLEN)
+                returns.append(retText)
             else:
-                retry = False  # Kill retry, successful write
+                retTextLEN = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text.LEN', 0)
+                returns.append(retTextLEN)
+
+            if fault.newAltText != '':
+                charArrayAltText = [ord(c) for c in fault.newAltText]  # Convert String to Byte Array
+                retAltTextLEN = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText.LEN',
+                                          len(fault.newAltText))
+                retAltText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText.DATA[0]',
+                                       charArrayAltText)
+                returns.append(retAltTextLEN)
+                returns.append(retAltText)
+            else:
+                retAltTextLEN = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText.LEN', 0)
+                returns.append(retAltTextLEN)
+
+            for ret in returns:
+                if writeFailed(ret):
+                    attempts -= 1  # decrement attempt count
+                    retry = False if attempts <= 0 else True
+                    if not retry:
+                        failureList.append(f'Program:{progName}.MessageArrayFault[{index}])')
+                else:
+                    retry = False  # Kill retry, successful write
     progressBox.close()
     return failureList
 
@@ -150,17 +175,43 @@ def send_messages(plc, tagList, progName):
             progressBox.setLabelText(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
             progressBox.setValue(index)
             QtGui.QGuiApplication.instance().processEvents()
-            #print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
+            print(f'Sending Program:{progName}.MessageArrayOperator[{index}]')
+            returns = list()
             retId = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Id', msg.newId)
-            retText = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text', msg.newText)
-            retAltText = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText', msg.newAltText)
-            if writeFailed(retId) or writeFailed(retText) or writeFailed(retAltText):
-                attempts -= 1  # decrement attempt count
-                retry = False if attempts <= 0 else True
-                if not retry:
-                    failureList.append(f'Program:{progName}.MessageArrayOperator[{index}])')
+            returns.append(retId)
+
+            if msg.newText != '':
+                charArrayText = [ord(c) for c in msg.newText]  # Convert String to Byte Array
+
+                retTextLEN = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text.LEN', len(msg.newText))
+                retText = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text.DATA[0]', charArrayText)
+                returns.append(retTextLEN)
+                returns.append(retText)
             else:
-                retry = False  # Kill retry, successful write
+                retTextLEN = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].Text.LEN', 0)
+                returns.append(retTextLEN)
+
+            if msg.newAltText != '':
+                charArrayAltText = [ord(c) for c in msg.newAltText]  # Convert String to Byte Array
+                retAltTextLEN = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText.LEN',
+                                          len(msg.newAltText))
+                retAltText = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText.DATA[0]',
+                                       charArrayAltText)
+                returns.append(retAltTextLEN)
+                returns.append(retAltText)
+            else:
+                retAltTextLEN = plc.Write(f'Program:{progName}.MessageArrayOperator[{index}].AltText.LEN', 0)
+                returns.append(retAltTextLEN)
+
+            for ret in returns:
+                if writeFailed(ret):
+                    attempts -= 1  # decrement attempt count
+                    retry = False if attempts <= 0 else True
+                    if not retry:
+                        failureList.append(f'Program:{progName}.MessageArrayOperator[{index}])')
+                else:
+                    retry = False  # Kill retry, successful write
+
     progressBox.close()
     return failureList
 
