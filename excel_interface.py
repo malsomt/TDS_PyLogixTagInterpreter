@@ -142,7 +142,7 @@ class ExcelInterface:
                             om = GeneralMessageExt()
                             om.newId = row[4].value  # Message ID
                             om.newText = row[5].value   # Message Text
-                            om.newAltText = row[5].value  # Message AltText
+                            om.newAltText = row[6].value  # Message AltText
                             operatorMessages.append(om)
                     except IndexError:
                         # Index errors will occur as message arrays will not match length, simply ignore

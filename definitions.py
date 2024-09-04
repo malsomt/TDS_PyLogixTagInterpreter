@@ -37,7 +37,7 @@ class GeneralMessage:
     GeneralMessage.Text : STRING128 \n
     GeneralMessage.AltText : STRING128 \n
     """
-    ByteLength = 180
+    ByteLength = 268
 
     def __init__(self, byteArray):
         if byteArray is not None:
@@ -49,7 +49,7 @@ class GeneralMessage:
             try:
                 self.Id = lu.unpack_DINT(byteArray[:4])
                 self.Text = lu.unpack_STRING(byteArray[4:136])
-                self.AltText = lu.unpack_STRING(byteArray[138:])
+                self.AltText = lu.unpack_STRING(byteArray[136:])
 
             except IndexError as e:
                 raise f'General Message could not parse the passed array. Check the size of the array: {e}'
@@ -131,7 +131,8 @@ class GeneralMessageExt(GeneralMessage):
     def newText(self, val):
         val = '' if val is None else val
         assert isinstance(val, str)
-        assert len(val) <= 82  # Max message length is 82 characters
+        if len(val) > 128:
+            val = val[:128]  # Max message length is 128 characters
         self._newText = val
         if self._newText == self.Text:
             self.edits = False
@@ -146,7 +147,8 @@ class GeneralMessageExt(GeneralMessage):
     def newAltText(self, val):
         val = '' if val is None else val
         assert isinstance(val, str)
-        assert len(val) <= 82  # Max message length is 82 characters
+        if len(val) > 128:
+            val = val[:128]  # Max message length is 128 characters
         self._newAltText = val
         if self._newAltText == self.AltText:
             self.edits = False
