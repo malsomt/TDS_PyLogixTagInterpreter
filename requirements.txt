@@ -2,3 +2,5 @@ PyQt5>=5.15.4
 pylogix>=0.8.14
 XlsxWriter>=3.1.9
 openpyxl>=3.1.2
+# Optional Install to Get Designer (Uncomment if installing through PIP)
+# PyQt5Designer>=5.14.1

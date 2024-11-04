@@ -11,29 +11,17 @@ main.py is the entry point
 pyinstaller command to compile to a single file runtime
 pyinstaller main.py --noconsole --onefile --name TDS_MessageTool --distpath ./Release
 
-!!!!Ensure to run inside the Virtual Environment or pyinstaller will be unable to find the supporting libs.!!!
+!!!!Ensure to run inside the Virtual Environment or pyinstaller will be unable to find the supporting libs!!!
 Also app a path if libs are still not being found...shown below as example.
 
-pyinstaller main.py --noconsole --onefile --name TDS_MessageTool --distpath ./Release -p C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter
+pyinstaller main.py --noconsole --onefile --name TDS_MessageTool_v#.# --distpath ./Release -p C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter
 
 
-Readme File here is for my personal notes until a later date.
-Ignore everything below this...
-
-
-
-TLM - 10-23-2023
-Check Github Issues for TODO list
-
-TLM - 10-10-2023
-Run the command below to compile the pyQT5 design file into executable python code that will generate a window on runtime.
+Command to Compile the design files into python code...
 
 pyuic5 PyQt5_DesignFile.ui -o MainWindow.py -x
-'-x' option appends the snippet below
-run without that option since the compiled windows are wrapper classes
-
-Results should be the same code that is generated in the designer with the addition of an "if main" executable.
-Example of "if main" generated
+'-x' option appends the snippet below if needed
+(Run without "-x")
 
 if __name__ == "__main__":
     import sys
@@ -43,3 +31,7 @@ if __name__ == "__main__":
     ui.setupUi(MainWindow)
     MainWindow.show()
     sys.exit(app.exec_())
+
+run without that option since the compiled windows are wrapper classes and the [if __name__ == "__main__":] entry
+is held in the main.py
+
