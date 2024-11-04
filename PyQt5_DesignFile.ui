@@ -78,7 +78,7 @@
           <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Import Message Tags from an XLSX file directly to the PLC.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
          <property name="text">
-          <string>Import to PLC...</string>
+          <string>  Import from xlxs...  </string>
          </property>
         </widget>
        </item>
