@@ -20,6 +20,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
     def __init__(self):
         super(Application, self).__init__()
         self.setupUi(self)
+        self.setWindowIcon(QtGui.QIcon('icon.ico'))
         self.setWindowTitle('TDS Message Tool - v1.4')
         self.btn_connect.clicked.connect(self.action_connectToPLC)
         self.btn_disconnect.clicked.connect(self.action_disconnectToPLC)
@@ -179,6 +180,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     """This Class extends the functionality of the Edit Window Defined by the GUI designer program."""
     def __init__(self):
         super(EditWindow, self).__init__()  # Init the Base Class 'EditWindow'
+        self.setWindowIcon(QtGui.QIcon('icon.ico'))
         self.setupUi(self)
         self.settings = QSettings("TDS", "TagTool")
         self.headerState = 0
@@ -495,6 +497,7 @@ if __name__ == "__main__":
 
     windowDict = {}
     app = QtWidgets.QApplication(sys.argv)
+    app.setWindowIcon(QtGui.QIcon('icon.ico'))
     MainWindow = Application()
     MainWindow.show()
     sys.exit(app.exec_())
