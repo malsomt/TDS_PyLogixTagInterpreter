@@ -150,7 +150,7 @@
        <item row="0" column="0">
         <layout class="QGridLayout" name="gridLayout_3">
          <property name="sizeConstraint">
-          <enum>QLayout::SetFixedSize</enum>
+          <enum>QLayout::SetMinAndMaxSize</enum>
          </property>
          <property name="bottomMargin">
           <number>5</number>
@@ -256,6 +256,12 @@
          </item>
          <item row="0" column="7">
           <widget class="QPushButton" name="btn_connect">
+           <property name="minimumSize">
+            <size>
+             <width>93</width>
+             <height>21</height>
+            </size>
+           </property>
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Checks if PLC target is valid. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
            </property>
@@ -278,6 +284,12 @@
           <widget class="QPushButton" name="btn_disconnect">
            <property name="enabled">
             <bool>false</bool>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>93</width>
+             <height>21</height>
+            </size>
            </property>
            <property name="toolTip">
             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Clears PLC object and closes connection.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
