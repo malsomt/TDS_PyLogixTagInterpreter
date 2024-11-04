@@ -499,5 +499,6 @@ if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
     app.setWindowIcon(QtGui.QIcon('icon.ico'))
     MainWindow = Application()
+    MainWindow.setWindowIcon(QtGui.QIcon('icon.ico'))
     MainWindow.show()
     sys.exit(app.exec_())
