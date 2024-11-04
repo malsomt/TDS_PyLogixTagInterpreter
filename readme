@@ -15,10 +15,14 @@ pyinstaller main.py --noconsole --onefile --name TDS_MessageTool --distpath ./Re
 Also app a path if libs are still not being found...shown below as example.
 Added Custom Icon File
 
-pyinstaller main.py --noconsole --onefile --name TDS_MessageTool_v#.# --distpath ./Release
--p C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter
---icon=C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter\icon.ico
+Command Below Rebuilds Spec File...
+pyinstaller main.py --noconsole --onefile --name TDS_MessageTool_v#.# --distpath ./Release -p C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter --icon=C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter\icon.ico
 
+Command Below Compiles with already built spec file...
+pyinstaller TDS_MessageTool_v1.4.spec
+
+Command Below Compiles resource file into py module that may be imported...
+pyrcc5 resources.qrc -o resources_rc.py
 
 Command to Compile the design files into python code...
 
