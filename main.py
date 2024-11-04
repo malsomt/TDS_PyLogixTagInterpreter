@@ -20,7 +20,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
     def __init__(self):
         super(Application, self).__init__()
         self.setupUi(self)
-        self.setWindowTitle('TDS Message Tool - v1.3')
+        self.setWindowTitle('TDS Message Tool - v1.4')
         self.btn_connect.clicked.connect(self.action_connectToPLC)
         self.btn_disconnect.clicked.connect(self.action_disconnectToPLC)
         self.btn_loadPrograms.clicked.connect(self.action_loadPrograms)
