@@ -157,7 +157,7 @@ class Ui_MainWindow(object):
         self.btn_export.setToolTip(_translate("MainWindow", "<html><head/><body><p>Export Message Tags into a formatted XLSX file.</p></body></html>"))
         self.btn_export.setText(_translate("MainWindow", "Export to xlxs..."))
         self.btn_import.setToolTip(_translate("MainWindow", "<html><head/><body><p>Import Message Tags from an XLSX file directly to the PLC.</p></body></html>"))
-        self.btn_import.setText(_translate("MainWindow", "Import to PLC..."))
+        self.btn_import.setText(_translate("MainWindow", " Import from xlxs... "))
         self.btn_loadPrograms.setToolTip(_translate("MainWindow", "<html><head/><body><p>Reload Component List from PLC.</p></body></html>"))
         self.btn_loadPrograms.setText(_translate("MainWindow", "Reload"))
         self.lst_components.setToolTip(_translate("MainWindow", "<html><head/><body><p>Double click listed Component to open edit window.</p></body></html>"))
