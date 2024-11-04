@@ -13,8 +13,11 @@ pyinstaller main.py --noconsole --onefile --name TDS_MessageTool --distpath ./Re
 
 !!!!Ensure to run inside the Virtual Environment or pyinstaller will be unable to find the supporting libs!!!
 Also app a path if libs are still not being found...shown below as example.
+Added Custom Icon File
 
-pyinstaller main.py --noconsole --onefile --name TDS_MessageTool_v#.# --distpath ./Release -p C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter
+pyinstaller main.py --noconsole --onefile --name TDS_MessageTool_v#.# --distpath ./Release
+-p C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter
+--icon=C:\Users\bob.saget\PycharmProjects\TDS_PyLogixTagInterpreter\icon.ico
 
 
 Command to Compile the design files into python code...
