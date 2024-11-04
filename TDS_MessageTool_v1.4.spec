@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=['C:\\Users\\tyler.malsom\\PycharmProjects\\TDS_PyLogixTagInterpreter'],
     binaries=[],
-    datas=[],
+    datas=[('C:\\Users\\tyler.malsom\\PycharmProjects\\TDS_PyLogixTagInterpreter\\icon.ico', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
