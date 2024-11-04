@@ -102,6 +102,7 @@ def send_faults(plc, tagList, progName):
     """
     progressBox = QProgressDialog('Doing super duper stuff...', '', 0, len(tagList))
     progressBox.setWindowModality(Core.WindowModal)
+    progressBox.setCancelButtonText('')  # Set text Cancel Button to blank
     progressBox.show()
     assert isinstance(plc, PLCExt)
     failureList = []  # empty List
