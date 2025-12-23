@@ -443,7 +443,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
     def action_send_faults(self):
         """
         Action changed to send every tag every time.
-        Sending Edits only feature has been removed
+        Sending Edits only feature has been removed.
         """
         global plc
         progName = self.windowTitle()
