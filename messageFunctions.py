@@ -5,7 +5,7 @@ from PyQt5.QtCore import Qt as Core
 from PyQt5.QtWidgets import QProgressDialog
 from PyQt5 import Qt, QtGui
 
-from definitions import parse_GeneralMessageArray, GeneralMessageExt, PLCExt, parse_FaultMessageArray
+from definitions import parse_GeneralMessageArray, GeneralMessageExt, PLCExt, parse_FaultMessageArray, FaultMessageExt
 
 
 def loadFaults(plc, progName):
@@ -22,6 +22,7 @@ def loadFaults(plc, progName):
 
     arrayLength = 0
     arrayName = ''
+    legacy = False
     fullTag_new = f'Program:{progName}.MessageArrayFault'
     fullTag_legacy = f'Program:{progName}.FaultMsg'
 
@@ -52,10 +53,10 @@ def loadFaults(plc, progName):
             if results_fault is not None:
                 if legacy: # check if length of data matches an older template
                     #use parsing function for old TDS fault message types
-                    return parse_FaultMessageArray(results_fault.Value, arrayLength)
+                    return parse_FaultMessageArray(results_fault.Value, arrayLength), legacy
                 else:
                     #use parsing function for newer General Message Array type
-                    return parse_GeneralMessageArray(results_fault.Value, arrayLength)
+                    return parse_GeneralMessageArray(results_fault.Value, arrayLength), legacy
         else:
             # Occasionally a PLC read will fail due to a connection lost error.
             # Simple re-run has solved the issue, this just does this automatically
@@ -101,21 +102,23 @@ def loadMessages(plc, progName):
             retry = False  # kill retry attempts
 
 
-def sortTagList(tagList):
+def sortTagList(tagList, legacy):
     tempList = []
-    for msg in tagList:
-        assert isinstance(msg, GeneralMessageExt)
-        # Check if Tag has any data
-        if msg.newId != 0 or msg.newText != '' or msg.newAltText != '':
-            tempList.append(msg)
-    tempList.sort(key=lambda gm: gm.newId)  # sort list by newId property of the General Messages
-    fillLen = len(tagList) - len(tempList)  # find how many tags are empty
-    for _ in range(fillLen):  # fill in list with blank tags
-        tempList.append(GeneralMessageExt())
-    return tempList
+    if tagList is not None:
+        for msg in tagList:
+            # Check if Tag has any data
+            if msg.newId != 0 or msg.newText != '' or msg.newAltText != '':
+                tempList.append(msg)
+        tempList.sort(key=lambda gm: gm.newId)  # sort list by newId property of the General Messages
+        fillLen = len(tagList) - len(tempList)  # find how many tags are empty
+        for _ in range(fillLen):  # fill in list with blank tags
+            if legacy:
+                tempList.append(FaultMessageExt())
+            else:
+                tempList.append(GeneralMessageExt())
+        return tempList
 
-
-def send_faults(plc, tagList, progName):
+def send_faults(plc, tagList, progName, legacy):
     """
 
     :param plc:
@@ -131,42 +134,44 @@ def send_faults(plc, tagList, progName):
     progressBox.setCancelButton(None)
     progressBox.show()
     assert isinstance(plc, PLCExt)
+    arrayName = "MessageArrayFault"
+    if legacy:
+        arrayName = "FaultMsg"
     failureList = []  # empty List
     for index, fault in enumerate(tagList):
-        assert isinstance(fault, GeneralMessageExt)
         retry = True  # flag used to loop in event of failed PLC read
         attempts = 2
         while retry:
-            progressBox.setLabelText(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            progressBox.setLabelText(f'Sending Program:{progName}.{arrayName}[{index}]')
             progressBox.setValue(index)
             QtGui.QGuiApplication.instance().processEvents()
-            print(f'Sending Program:{progName}.MessageArrayFault[{index}]')
+            print(f'Sending Program:{progName}.{arrayName}[{index}]')
             # Because General Message Strings are no longer Base type Strings.
             # Convert the Strings to byte arrays with custom lengths to match the UDT type String
             returns = list()
-            retId = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Id', fault.newId)
+            retId = plc.Write(f'Program:{progName}.{arrayName}[{index}].Id', fault.newId)
             returns.append(retId)
             if fault.newText != '':
                 charArrayText = [ord(c) for c in fault.newText]  # Convert String to Byte Array
 
-                retTextLEN = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text.LEN', len(fault.newText))
-                retText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text.DATA[0]', charArrayText)
+                retTextLEN = plc.Write(f'Program:{progName}.{arrayName}[{index}].Text.LEN', len(fault.newText))
+                retText = plc.Write(f'Program:{progName}.{arrayName}[{index}].Text.DATA[0]', charArrayText)
                 returns.append(retTextLEN)
                 returns.append(retText)
             else:
-                retTextLEN = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].Text.LEN', 0)
+                retTextLEN = plc.Write(f'Program:{progName}.{arrayName}[{index}].Text.LEN', 0)
                 returns.append(retTextLEN)
 
             if fault.newAltText != '':
                 charArrayAltText = [ord(c) for c in fault.newAltText]  # Convert String to Byte Array
-                retAltTextLEN = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText.LEN',
+                retAltTextLEN = plc.Write(f'Program:{progName}.{arrayName}[{index}].AltText.LEN',
                                           len(fault.newAltText))
-                retAltText = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText.DATA[0]',
+                retAltText = plc.Write(f'Program:{progName}.{arrayName}[{index}].AltText.DATA[0]',
                                        charArrayAltText)
                 returns.append(retAltTextLEN)
                 returns.append(retAltText)
             else:
-                retAltTextLEN = plc.Write(f'Program:{progName}.MessageArrayFault[{index}].AltText.LEN', 0)
+                retAltTextLEN = plc.Write(f'Program:{progName}.{arrayName}[{index}].AltText.LEN', 0)
                 returns.append(retAltTextLEN)
 
             for ret in returns:
@@ -174,7 +179,7 @@ def send_faults(plc, tagList, progName):
                     attempts -= 1  # decrement attempt count
                     retry = False if attempts <= 0 else True
                     if not retry:
-                        failureList.append(f'Program:{progName}.MessageArrayFault[{index}])')
+                        failureList.append(f'Program:{progName}.{arrayName}[{index}])')
                 else:
                     retry = False  # Kill retry, successful write
     progressBox.close()
