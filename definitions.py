@@ -172,6 +172,7 @@ class LogixUnpack:
         length = self.unpack_DINT(byteArray[:4])
         return str(unpack_from(f'{length}s', byteArray, 4)[0], 'utf-8')
 
+"""---CLASS DEFINITION---"""
 
 class PLCExt(pylogix.PLC):
     # Extend PLC class from pylogix to have basic flag to control threading access control on single instance
@@ -195,3 +196,155 @@ class PLCExt(pylogix.PLC):
     @property
     def busy(self):
         return self._busy
+
+"""---CLASS DEFINITION---"""
+
+def parse_FaultMessageArray(byteArray, arraylength):
+    """
+    Parse Fault Message Array supports the older TDS templates that use an array of standard STRING PLC class
+    :type
+    :param byteArray:
+    :param arraylength:
+    :return:
+    """
+    """Parse the result byte stream."""
+    # General message UDT is defined as 180bytes from the plc
+    # Break the result into 180 byte chunks and pass them to a General Message object.
+    # GeneralMessage class will parse the block into its individual elements.
+    messageTags = []
+    try:
+        for i in range(arraylength):
+            arr_lwr = i * FaultMessage.ByteLength
+            arr_upr = arr_lwr + FaultMessage.ByteLength
+            messageTags.append(FaultMessageExt(byteArray[arr_lwr:arr_upr]))
+    except IndexError:
+        raise IndexError('Check byte array input to the General Message parser.')
+    return messageTags  # Return List of parsed General Messages
+
+""""""
+
+# class matched UDT in OLDER TDS template
+class FaultMessage:
+    """
+    Class intended to match UDT in PLC for older PLC templates
+    UDT defined as 180 bytes
+
+    GeneralMessage.Id : DINT \n
+    GeneralMessage.Text : STRING \n
+    GeneralMessage.AltText : STRING \n
+    """
+    ByteLength = 180
+
+    def __init__(self, byteArray):
+        if byteArray is not None:
+            assert isinstance(byteArray, bytes) and len(byteArray)
+            lu = LogixUnpack()
+            self._Id = 0
+            self._Text = ''
+            self._AltText = ''
+            try:
+                self.Id = lu.unpack_DINT(byteArray[:4])
+                self.Text = lu.unpack_STRING(byteArray[4:90])
+                self.AltText = lu.unpack_STRING(byteArray[92:])
+
+            except IndexError as e:
+                raise f'Fault Message could not parse the passed array. Check the size of the array: {e}'
+        else:
+            self.Id = 0
+            self.Text = ''
+            self.AltText = ''
+
+    def __repr__(self):
+        return self.__str__()
+
+    def __str__(self):
+        return f'ID: {self.Id}\nText: {self.Text}\nAltText: {self.AltText}\n'
+
+    @property
+    def Id(self):
+        return self._Id
+
+    @Id.setter
+    def Id(self, input):
+        assert isinstance(input, int)
+        self._Id = input
+
+    @property
+    def Text(self):
+        return self._Text
+
+    @Text.setter
+    def Text(self, input):
+        assert isinstance(input, str)
+        self._Text = input
+
+    @property
+    def AltText(self):
+        return self._AltText
+
+    @AltText.setter
+    def AltText(self, input):
+        assert isinstance(input, str)
+        self._AltText = input
+
+    @staticmethod
+    def truncate(input):
+        if len(input) > 82:
+            return input[:82]  # truncate
+        else:
+            return input
+
+
+class FaultMessageExt(FaultMessage):
+    # GeneralMessage class extended to include edit flag and ._newXXX for use when editing table
+
+    def __init__(self, byteArray=None):
+        super().__init__(byteArray)
+        self.edits = False
+        # Constructor to Copy Base class values initially
+        self._newId = self.Id
+        self._newText = self.Text
+        self._newAltText = self.AltText
+
+    @property
+    def newId(self):
+        return self._newId
+
+    @newId.setter
+    def newId(self, val):
+        assert isinstance(val, int)
+        self._newId = val
+        if self._newId == self.Id:
+            self.edits = False
+        else:
+            self.edits = True
+
+    @property
+    def newText(self):
+        return self._newText
+
+    @newText.setter
+    def newText(self, val):
+        val = '' if val is None else val
+        assert isinstance(val, str)
+        assert len(val) <= 82  # Max message length is 82 characters
+        self._newText = val
+        if self._newText == self.Text:
+            self.edits = False
+        else:
+            self.edits = True
+
+    @property
+    def newAltText(self):
+        return self._newAltText
+
+    @newAltText.setter
+    def newAltText(self, val):
+        val = '' if val is None else val
+        assert isinstance(val, str)
+        assert len(val) <= 82  # Max message length is 82 characters
+        self._newAltText = val
+        if self._newAltText == self.AltText:
+            self.edits = False
+        else:
+            self.edits = True
