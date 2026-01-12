@@ -1,9 +1,11 @@
+from ctypes.wintypes import BOOLEAN
+
 import pylogix
 from PyQt5.QtCore import Qt as Core
 from PyQt5.QtWidgets import QProgressDialog
 from PyQt5 import Qt, QtGui
 
-from definitions import parse_GeneralMessageArray, GeneralMessageExt, PLCExt
+from definitions import parse_GeneralMessageArray, GeneralMessageExt, PLCExt, parse_FaultMessageArray
 
 
 def loadFaults(plc, progName):
@@ -12,28 +14,48 @@ def loadFaults(plc, progName):
     Returns a list of parsed 'GeneralMessage' type.
     :param plc: PLC object from pylogix PLC class
     :param progName: String of program name to load fault messages from
+    :param legacy: Bool flag to provide the correct parse function, Set True
     :return:
     """
     assert isinstance(plc, pylogix.PLC)
+    assert isinstance(progName, str)
+
     arrayLength = 0
-    fullTag_fault = f'Program:{progName}.MessageArrayFault'
+    arrayName = ''
+    fullTag_new = f'Program:{progName}.MessageArrayFault'
+    fullTag_legacy = f'Program:{progName}.FaultMsg'
+
     # Get the length of the arrays from the tag info in the plc object
+    #Figure out if old message array still exists
     for index, tag in enumerate(plc.TagList):
-        if tag.TagName == fullTag_fault:
+        if tag.TagName == fullTag_new:
             arrayLength = tag.Size
+            arrayName = 'MessageArrayFault'
+            legacy = False
+        if tag.TagName == fullTag_legacy:
+            if arrayLength == 0:
+                arrayLength = tag.Size
+                arrayName = 'FaultMsg'
+                legacy = True
         if arrayLength != 0:
             break  # Kill Loop once found
     if arrayLength == 0:
         return None  # Exit Function
+
     retry = True  # flag used to loop in event of failed PLC read
     attempts = 2
     while retry:
-        results_fault = plc.Read(f'Program:{progName}.MessageArrayFault[0]', arrayLength)
+        results_fault = plc.Read(f'Program:{progName}.{arrayName}[0]', arrayLength)
         if results_fault.Status == 'Success':
             retry = False  # kill while loop retries
             # attempt to parse out results
             if results_fault is not None:
-                return parse_GeneralMessageArray(results_fault.Value, arrayLength)
+                if legacy: # check if length of data matches an older template
+                    #use parsing function for old TDS fault message types
+                    return parse_FaultMessageArray(results_fault.Value, arrayLength)
+                else:
+                    #use parsing function for newer General Message Array type
+                    return parse_GeneralMessageArray(results_fault.Value, arrayLength)
         else:
             # Occasionally a PLC read will fail due to a connection lost error.
             # Simple re-run has solved the issue, this just does this automatically
@@ -47,10 +69,11 @@ def loadMessages(plc, progName):
     """
         Function is called to load the operator message tags from a specific program in the PLC.
         Returns a list of parsed 'GeneralMessage' type.
+        Only available on new Template, does not have a legacy function
         :param plc: PLC object from pylogix PLC class
         :param progName: String of program name to load operator messages from
         :return:
-        """
+    """
     arrayLength = 0
     fullTag_msgs = f'Program:{progName}.MessageArrayOperator'
     for index, tag in enumerate(plc.TagList):
