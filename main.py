@@ -233,6 +233,13 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         if self.faultTags is not None and self.messageTags is not None:
             self.display_results_fault()
             self.display_results_msgs()
+        elif self.faultTags is not None and self.messageTags is None:
+            self.display_results_fault()
+            mbx = QMessageBox(QMessageBox.Information, 'Message Error',
+                              'Unable to find "MessageArrayOperator" array tag. '
+                              'If this is an older template Ignore this error. ',
+                              QMessageBox.Ok)
+            mbx.exec()
         else:
             mbx = QMessageBox(QMessageBox.Information, 'Message Error',
                               'Unable to find tags "MessageArrayFault" or "MessageArrayOperator" '
