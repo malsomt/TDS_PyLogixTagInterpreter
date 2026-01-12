@@ -8,12 +8,14 @@ from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox
 from MainWindow import *
 from MessageWindow import *
 import threading
+
+from definitions import FaultMessage, GeneralMessage
 from excel_interface import ExcelInterface
 from messageFunctions import *
 
 global windowDict  # Maintain all QT window pointers in dictionary for easy commanding from outside scope
 global plc  # Global plc variable created as master instance of PLC class
-
+# References to Legacy: Legacy --> Old PLC Fault Message Template, Default is False for latest fault message structure
 
 class Application(Ui_MainWindow, QtWidgets.QMainWindow):
     """This Class extends the functionality of the Main Window Defined by the GUI designer program."""
@@ -184,6 +186,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.setupUi(self)
         self.settings = QSettings("TDS", "TagTool")
         self.headerState = 0
+        self.legacy = False # Window level bool to track if legacy tags or not.
         self.ignoreChangeEvent = False
         self._faultTags = []
         self._messageTags = []
@@ -192,8 +195,8 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.installEventFilter(self)
         self.btn_fault_reload.clicked.connect(self.action_reload_faults)
         self.btn_msg_reload.clicked.connect(self.action_reload_msgs)
-        self.btn_fault_send.clicked.connect(self.action_send_msgs)
-        self.btn_msg_send.clicked.connect(self.action_send_faults)
+        self.btn_msg_send.clicked.connect(self.action_send_msgs)
+        self.btn_fault_send.clicked.connect(self.action_send_faults)
         self.chkbx_faultSortIn.stateChanged.connect(self.action_faultSortInCheckboxChanged)
         self.chkbx_msgSortIn.stateChanged.connect(self.action_msgSortInCheckboxChanged)
         self.tbl_faults.setColumnWidth(1, 700)
@@ -228,13 +231,18 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         global plc
         super(EditWindow, self).show()
         progName = self.windowTitle()
-        self.faultTags = loadFaults(plc, progName)
+        self.faultTags, self.legacy = loadFaults(plc, progName) #unpack tuple from function
         self.messageTags = loadMessages(plc, progName)
+        # Valid non-legacy
         if self.faultTags is not None and self.messageTags is not None:
             self.display_results_fault()
             self.display_results_msgs()
+            # Valid legacy
         elif self.faultTags is not None and self.messageTags is None:
             self.display_results_fault()
+            self.tab_msgs.setEnabled(False)
+            self.btn_msg_send.setEnabled(False) # Disable the Messages send button
+            self.btn_msg_reload.setEnabled(False) # Disable the Messages send button
             mbx = QMessageBox(QMessageBox.Information, 'Message Error',
                               'Unable to find "MessageArrayOperator" array tag. '
                               'If this is an older template Ignore this error. ',
@@ -348,7 +356,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.tbl_faults.clearContents()
         self.tbl_faults.setRowCount(len(self.faultTags))
         if self.chkbx_faultSortIn.isChecked():
-            self.faultTags = sortTagList(self.faultTags)  # Sort the fault tags
+            self.faultTags = sortTagList(self.faultTags, self.legacy)  # Sort the fault tags
         for row, tag in enumerate(self.faultTags):
             self.tbl_faults.setItem(row, 0, QtWidgets.QTableWidgetItem(str(tag.Id)))
             self.tbl_faults.setItem(row, 1, QtWidgets.QTableWidgetItem(tag.Text))
@@ -386,11 +394,13 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             except ValueError:
                 item.setText(str(self.faultTags[item.row()].newId))
                 print(f'Attempted to set Id to non-INTEGER value.')
-        elif item.column() == 1:  # Aligns with .Text
-            self.faultTags[item.row()].newText = item.text()
 
-        elif item.column() == 2:  # Aligns with .AltText
-            self.faultTags[item.row()].newAltText = item.text()
+        elif item.column() == 1 or 2:  # Aligns with .Text and .AltText
+            if self.legacy:
+                item.setText(FaultMessage.truncate(item.text()))
+            else:
+                item.setText(GeneralMessage.truncate(item.text()))
+            self.faultTags[item.row()].newText = item.text()
 
         if self.faultTags[item.row()].edits:
             item.setBackground(QColor(255, 255, 150))
@@ -438,7 +448,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         global plc
         self.status_fault.setText('Loading Tags from PLC...')
         progName = self.windowTitle()
-        self.faultTags = loadFaults(plc, progName)
+        self.faultTags, self.legacy = loadFaults(plc, progName)
         self.display_results_fault()
 
     def action_reload_msgs(self):
@@ -455,13 +465,13 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         global plc
         progName = self.windowTitle()
         if self.chkbx_faultSortOut.isChecked():
-            changeList = sortTagList(self.faultTags)
+            changeList = sortTagList(self.faultTags, legacy=self.legacy)
         else:
             changeList = self.faultTags
 
         if len(changeList):
-            send_faults(plc=plc, progName=progName, tagList=changeList)
-            self.faultTags = loadFaults(plc=plc, progName=progName)
+            send_faults(plc=plc, progName=progName, tagList=changeList, legacy=self.legacy)
+            self.faultTags, self.legacy = loadFaults(plc=plc, progName=progName)
             self.display_results_fault()
 
     def action_send_msgs(self):
