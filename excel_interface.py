@@ -28,6 +28,7 @@ class ExcelInterface:
         self.filePath = filepath
         self.progDict = {}
         self.failList = []
+        self.legacy = False
 
     @property
     def filePath(self):
@@ -49,8 +50,9 @@ class ExcelInterface:
                 worksheet = self.workbook.add_worksheet(progName)
                 bold = self.workbook.add_format({'bold': True})  # create bold formatting
                 wrap = self.workbook.add_format({'text_wrap': True})
-                faultTags = messageFunctions.loadFaults(self.plc, progName)
-                messageTags = messageFunctions.loadMessages(self.plc, progName)
+                faultTags , self.legacy = messageFunctions.loadFaults(self.plc, progName)
+                if not self.legacy: #skip Messages if older PLC template
+                    messageTags = messageFunctions.loadMessages(self.plc, progName)
                 # set column width
                 worksheet.set_column(0, 0, 10)  # Format ID Columns
                 worksheet.set_column(4, 4, 10)  # Format ID Columns
@@ -220,8 +222,9 @@ class ExcelInterface:
         for prog in programList:
             target1 = prog + '.MessageArrayFault'
             target2 = prog + '.MessageArrayOperator'
+            target3 = prog + '.FaultMsg'
             for tag in self.plc.TagList:
-                if tag.TagName == target1 or tag.TagName == target2:
+                if tag.TagName == target1 or tag.TagName == target2 or tag.TagName == target3:
                     filteredProgList.append(prog)
                     break
         if len(programList) != len(filteredProgList):
