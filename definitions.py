@@ -131,8 +131,7 @@ class GeneralMessageExt(GeneralMessage):
     def newText(self, val):
         val = '' if val is None else val
         assert isinstance(val, str)
-        if len(val) > 128:
-            val = val[:128]  # Max message length is 128 characters
+        val = self.truncate(val)
         self._newText = val
         if self._newText == self.Text:
             self.edits = False
@@ -147,8 +146,7 @@ class GeneralMessageExt(GeneralMessage):
     def newAltText(self, val):
         val = '' if val is None else val
         assert isinstance(val, str)
-        if len(val) > 128:
-            val = val[:128]  # Max message length is 128 characters
+        val = self.truncate(val) # Max message length is 128 characters
         self._newAltText = val
         if self._newAltText == self.AltText:
             self.edits = False
@@ -296,7 +294,7 @@ class FaultMessage:
 
 
 class FaultMessageExt(FaultMessage):
-    # GeneralMessage class extended to include edit flag and ._newXXX for use when editing table
+    # Fault Message class extended to include edit flag and ._newXXX for use when editing table
 
     def __init__(self, byteArray=None):
         super().__init__(byteArray)
@@ -327,7 +325,7 @@ class FaultMessageExt(FaultMessage):
     def newText(self, val):
         val = '' if val is None else val
         assert isinstance(val, str)
-        assert len(val) <= 82  # Max message length is 82 characters
+        val = self.truncate(val)  # Max message length is 82 characters
         self._newText = val
         if self._newText == self.Text:
             self.edits = False
@@ -342,7 +340,7 @@ class FaultMessageExt(FaultMessage):
     def newAltText(self, val):
         val = '' if val is None else val
         assert isinstance(val, str)
-        assert len(val) <= 82  # Max message length is 82 characters
+        val = self.truncate(val)  # Max message length is 82 characters
         self._newAltText = val
         if self._newAltText == self.AltText:
             self.edits = False
