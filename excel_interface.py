@@ -10,7 +10,7 @@ import openpyxl
 import openpyxl.utils.exceptions as ox_exc
 
 from ImportWindow import Ui_Import_Target
-from definitions import GeneralMessageExt
+from definitions import GeneralMessageExt, FaultMessageExt
 
 import messageFunctions
 
@@ -64,9 +64,11 @@ class ExcelInterface:
                 worksheet.write('B1', 'Text', bold)
                 worksheet.write('C1', 'AltText', bold)
                 # Skip Column D For readability
-                worksheet.write('E1', 'Message ID', bold)
-                worksheet.write('F1', 'Text', bold)
-                worksheet.write('G1', 'AltText', bold)
+                #Do not format columns for message tags in legacy format.
+                if not self.legacy:
+                    worksheet.write('E1', 'Message ID', bold)
+                    worksheet.write('F1', 'Text', bold)
+                    worksheet.write('G1', 'AltText', bold)
                 # enumerate and write out tag data for Faults
                 for index, tag in enumerate(faultTags):
                     index = index + 2  # Avoid overwriting the Headers
@@ -76,15 +78,18 @@ class ExcelInterface:
                     if id or text or altText:
                         raise xlsx_exc.XlsxWriterException(
                             f'Writer Fault Status: Id:{id}, Text:{text}, AltText:{altText}')
+
+                #Skip Messages if message tags are None or identified as legacy
                 # enumerate this for messages since they may have different lengths
-                for index, tag in enumerate(messageTags):
-                    index = index + 2  # Avoid overwriting the Headers
-                    id = worksheet.write(f'E{index}', tag.Id, wrap)
-                    text = worksheet.write(f'F{index}', tag.Text, wrap)
-                    altText = worksheet.write(f'G{index}', tag.AltText, wrap)
-                    if id or text or altText:
-                        raise xlsx_exc.XlsxWriterException(
-                            f'Writer Message Status: Id:{id}, Text:{text}, AltText:{altText}')
+                if not self.legacy:
+                    for index, tag in enumerate(messageTags):
+                        index = index + 2  # Avoid overwriting the Headers
+                        id = worksheet.write(f'E{index}', tag.Id, wrap)
+                        text = worksheet.write(f'F{index}', tag.Text, wrap)
+                        altText = worksheet.write(f'G{index}', tag.AltText, wrap)
+                        if id or text or altText:
+                            raise xlsx_exc.XlsxWriterException(
+                                f'Writer Message Status: Id:{id}, Text:{text}, AltText:{altText}')
             self.workbook.close()
 
         except xlsx_exc.FileCreateError:
@@ -111,14 +116,20 @@ class ExcelInterface:
         """
         try:
             self.workbook = openpyxl.load_workbook(self._filePath, read_only=True)
-            progNames = self.workbook.sheetnames  # return list of sheet names in excel
+            progNames = self.workbook.sheetnames  # return list of sheet names in Excel
 
             for index, prog in enumerate(progNames):
                 sheet = self.workbook[prog]
-                if sheet.max_column != 7:
+                if sheet.max_column == 7 or 3:
+                    rowCount = sheet.max_row
+                    if sheet.max_column == 7:
+                        read = sheet[f'A2:G{rowCount}']
+                    elif sheet.max_column == 3:
+                        read = sheet[f'A2:C{rowCount}']
+                        self.legacy = True
+                else:
                     raise Exception('Invalid Excel input format')
-                rowCount = sheet.max_row
-                read = sheet[f'A2:G{rowCount}']
+
                 """
                 sheet read object returns a tuple of rows
                 To access individual cells, example: 'read[0][0].value' returns the value of the above 'read' variable 
@@ -128,7 +139,10 @@ class ExcelInterface:
                 operatorMessages = []
                 for row in read:  # iterate read rows and access by column index
                     try:
-                        fm = GeneralMessageExt()
+                        if self.legacy: # Old template
+                            fm = FaultMessageExt()
+                        else:
+                            fm = GeneralMessageExt()
                         Id = row[0].value
                         if Id is not None:
                             fm.newId = row[0].value  # Fault Id
@@ -139,13 +153,14 @@ class ExcelInterface:
                         # Index errors will occur as message arrays will not match length, simply ignore
                         pass
                     try:
-                        Id = row[4].value
-                        if Id is not None:
-                            om = GeneralMessageExt()
-                            om.newId = row[4].value  # Message ID
-                            om.newText = row[5].value   # Message Text
-                            om.newAltText = row[6].value  # Message AltText
-                            operatorMessages.append(om)
+                        if not self.legacy:
+                            Id = row[4].value
+                            if Id is not None:
+                                om = GeneralMessageExt()
+                                om.newId = row[4].value  # Message ID
+                                om.newText = row[5].value   # Message Text
+                                om.newAltText = row[6].value  # Message AltText
+                                operatorMessages.append(om)
                     except IndexError:
                         # Index errors will occur as message arrays will not match length, simply ignore
                         pass
@@ -166,12 +181,13 @@ class ExcelInterface:
                     """
                     QtGui.QGuiApplication.instance().processEvents()
 
-                    self.failList += messageFunctions.send_faults(plc=self.plc, progName=prog, tagList=self.progDict[prog][0])
+                    self.failList += messageFunctions.send_faults(plc=self.plc, progName=prog, tagList=self.progDict[prog][0], legacy=self.legacy)
                     progressBox.setLabelText(f'Writing Operator Message tags to "{prog}"')
                     QtGui.QGuiApplication.instance().processEvents()  # Call to update Progress Bar
-                    self.failList += messageFunctions.send_messages(plc=self.plc, progName=prog, tagList=self.progDict[prog][1])
-                    progressBox.setValue(index)  # Should kill the progress dialog box
-                    QtGui.QGuiApplication.instance().processEvents()
+                    if not self.legacy:
+                        self.failList += messageFunctions.send_messages(plc=self.plc, progName=prog, tagList=self.progDict[prog][1])
+                        progressBox.setValue(index)  # Should kill the progress dialog box
+                        QtGui.QGuiApplication.instance().processEvents()
                 progressBox.close()
                 if len(self.failList) == 0:
                     mbx = QMessageBox(QMessageBox.Information, 'Tag Import Complete',
@@ -218,15 +234,19 @@ class ExcelInterface:
                     return programList   # Return the empty List
 
         # Look for 'MessageArrayFault' and MessageArrayOperator and remove programs without those tags
+        # Added search for old template tag 'FaultMsg'
         filteredProgList = []
         for prog in programList:
             target1 = prog + '.MessageArrayFault'
             target2 = prog + '.MessageArrayOperator'
             target3 = prog + '.FaultMsg'
             for tag in self.plc.TagList:
-                if tag.TagName == target1 or tag.TagName == target2 or tag.TagName == target3:
+                if tag.TagName == target1 or tag.TagName == target2:
                     filteredProgList.append(prog)
                     break
+                elif tag.TagName == target3:
+                    filteredProgList.append(prog)
+
         if len(programList) != len(filteredProgList):
             print(f'Programs List was reduced from {len(programList)} to {len(filteredProgList)}')
         # Filter the 'Program:' from the front of the names to use as sheet names
