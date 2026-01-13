@@ -243,16 +243,16 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             self.tab_msgs.setEnabled(False)
             self.btn_msg_send.setEnabled(False) # Disable the Messages send button
             self.btn_msg_reload.setEnabled(False) # Disable the Messages send button
-            mbx = QMessageBox(QMessageBox.Information, 'Message Error',
-                              'Unable to find "MessageArrayOperator" array tag. '
-                              'If this is an older template Ignore this error. ',
-                              QMessageBox.Ok)
+            mbx = QMessageBox(QMessageBox.Information, 'Warning!',
+                              '"MessageArrayOperator" tag not found.\n'
+                              'Operator Messages tab is disabled.',
+                              QMessageBox.Ok, parent=self)
             mbx.exec()
         else:
             mbx = QMessageBox(QMessageBox.Information, 'Message Error',
                               'Unable to find tags "MessageArrayFault" or "MessageArrayOperator" '
                               'in this component program.',
-                              QMessageBox.Ok)
+                              QMessageBox.Ok, parent=self)
             mbx.exec()
             self.close()  # Kill window
 
