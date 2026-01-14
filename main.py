@@ -1,7 +1,7 @@
 import csv
 import io
 
-from PyQt5.QtCore import QEvent, QSettings, QPoint, QSize
+from PyQt5.QtCore import QEvent, QSettings, QPoint, QSize, pyqtSignal
 from PyQt5.QtGui import QKeySequence, QColor
 from PyQt5.QtWidgets import QApplication, QFileDialog, QMessageBox
 
@@ -13,7 +13,7 @@ from definitions import FaultMessage, GeneralMessage
 from excel_interface import ExcelInterface
 from messageFunctions import *
 
-global windowDict  # Maintain all QT window pointers in dictionary for easy commanding from outside scope
+# Maintain all QT window pointers in dictionary for easy commanding from outside scope
 global plc  # Global plc variable created as master instance of PLC class
 # References to Legacy: Legacy --> Old PLC Fault Message Template, Default is False for latest fault message structure
 
@@ -21,6 +21,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
     """This Class extends the functionality of the Main Window Defined by the GUI designer program."""
     def __init__(self):
         super(Application, self).__init__()
+        self.windowDict = {}
         self.setupUi(self)
         self.setWindowIcon(QtGui.QIcon('icon.ico'))
         self.setWindowTitle('TDS Message Tool - v1.4')
@@ -32,13 +33,13 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.btn_import.clicked.connect(self.action_import)
         self._connected = None
         self.connected = False
+        self.ignoreWarning = False
 
     def closeEvent(self, a0: QtGui.QCloseEvent) -> None:
         # Close all Open Windows before killing main App
-        global windowDict
-        if len(windowDict):
-            for win in windowDict:
-                windowDict[win].close()
+        if len(self.windowDict):
+            for win in self.windowDict:
+                self.windowDict[win].close()
 
     @property
     def connected(self):
@@ -54,7 +55,6 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.btn_import.setEnabled(True)
 
     def action_export(self):
-        global windowDict
         global plc
         options = QFileDialog.Options()
         # options |= QFileDialog. DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
@@ -66,7 +66,6 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
             file.Export()
 
     def action_import(self):
-        global windowDict
         global plc
         options = QFileDialog.Options()
         # options |= QFileDialog.DontUseNativeDialog # Enable if you want to use pyQT5 file browser over windows
@@ -95,9 +94,8 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.status_disp.setText('Disconnected')
         self.lst_components.clear()
         self.connected = False
-        global windowDict
         global plc
-        windowDict = {}  # clear window dictionary
+        self.windowDict = {}  # clear window dictionary
         plc.Close()
         plc = None  # Clear plc tag
 
@@ -166,19 +164,25 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         # return the processor slot selected from the main window
         return self.ip_slot.value()
 
+    def ignoreWarningFlag(self):
+        self.ignoreWarning = True
+
     def action_editSelectProgram(self):
         # Open an instance of the tag editor table.
         # Give it the name of the program we are editing
         # Use the program name to place the window object into a global dictionary.
-        global windowDict
         progName = self.lst_components.selectedItems()[0].text()
         editWindow = EditWindow()
         editWindow.setWindowTitle(progName)
-        windowDict[progName] = editWindow
-        windowDict[progName].show()
+        editWindow.ignoreWarningSignal.connect(self.ignoreWarningFlag)
+        editWindow.ignoreWarning = self.ignoreWarning
+        self.windowDict[progName] = editWindow
+        self.windowDict[progName].show()
+
 
 
 class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
+    ignoreWarningSignal = QtCore.pyqtSignal()
     """This Class extends the functionality of the Edit Window Defined by the GUI designer program."""
     def __init__(self):
         super(EditWindow, self).__init__()  # Init the Base Class 'EditWindow'
@@ -202,6 +206,7 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
         self.tbl_faults.setColumnWidth(1, 700)
         self.tbl_msgs.setColumnWidth(1, 700)
         self.read_appSettings()
+        self.ignoreWarning = False
 
     def closeEvent(self, event):
         self.write_appSettings()
@@ -243,11 +248,15 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
             self.tab_msgs.setEnabled(False)
             self.btn_msg_send.setEnabled(False) # Disable the Messages send button
             self.btn_msg_reload.setEnabled(False) # Disable the Messages send button
-            mbx = QMessageBox(QMessageBox.Information, 'Warning!',
-                              '"MessageArrayOperator" tag not found.\n'
-                              'Operator Messages tab is disabled.',
-                              QMessageBox.Ok, parent=self)
-            mbx.exec()
+            if not self.ignoreWarning:
+                mbx = QMessageBox(QMessageBox.Information, 'Warning!',
+                                  '"MessageArrayOperator" tag not found.\n'
+                                  'Operator Messages tab is disabled.',
+                                  QMessageBox.Ok, parent=self)
+                r = mbx.exec()
+                if r == QMessageBox.Ok:
+                    self.ignoreWarningSignal.emit()
+
         else:
             mbx = QMessageBox(QMessageBox.Information, 'Message Error',
                               'Unable to find tags "MessageArrayFault" or "MessageArrayOperator" '
@@ -512,7 +521,6 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
 if __name__ == "__main__":
     import sys
 
-    windowDict = {}
     app = QtWidgets.QApplication(sys.argv)
     app.setWindowIcon(QtGui.QIcon('icon.ico'))
     MainWindow = Application()
