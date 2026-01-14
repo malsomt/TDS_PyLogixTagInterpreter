@@ -164,6 +164,7 @@ def send_faults(plc, tagList, progName, legacy):
 
             if fault.newAltText != '':
                 charArrayAltText = [ord(c) for c in fault.newAltText]  # Convert String to Byte Array
+
                 retAltTextLEN = plc.Write(f'Program:{progName}.{arrayName}[{index}].AltText.LEN',
                                           len(fault.newAltText))
                 retAltText = plc.Write(f'Program:{progName}.{arrayName}[{index}].AltText.DATA[0]',
