@@ -409,7 +409,10 @@ class EditWindow(Ui_EditTable, QtWidgets.QTabWidget):
                 item.setText(FaultMessage.truncate(item.text()))
             else:
                 item.setText(GeneralMessage.truncate(item.text()))
-            self.faultTags[item.row()].newText = item.text()
+            if item.column() == 1:
+                self.faultTags[item.row()].newText = item.text()
+            if item.column() == 2:
+                self.faultTags[item.row()].newAltText = item.text()
 
         if self.faultTags[item.row()].edits:
             item.setBackground(QColor(255, 255, 150))
