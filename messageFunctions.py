@@ -120,7 +120,6 @@ def sortTagList(tagList, legacy):
 
 def send_faults(plc, tagList, progName, legacy):
     """
-
     :param plc:
     :param tagList:
     :param progName:
