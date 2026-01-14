@@ -24,7 +24,7 @@ class Application(Ui_MainWindow, QtWidgets.QMainWindow):
         self.windowDict = {}
         self.setupUi(self)
         self.setWindowIcon(QtGui.QIcon('icon.ico'))
-        self.setWindowTitle('TDS Message Tool - v1.4')
+        self.setWindowTitle('TDS Message Tool - v2.0')
         self.btn_connect.clicked.connect(self.action_connectToPLC)
         self.btn_disconnect.clicked.connect(self.action_disconnectToPLC)
         self.btn_loadPrograms.clicked.connect(self.action_loadPrograms)
